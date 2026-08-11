@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 def _dataset_path(args):
     config = load_config(args.config)
-    return args.dataset or config.get("eval.dataset")
+    return args.dataset or config.path_of("eval.dataset")
 
 
 def cmd_status(args) -> int:
@@ -93,8 +93,18 @@ def _apply(args, *, value: bool) -> int:
     )
     save_dataset(EvalDataset(questions=updated, path=dataset.path), path)
 
-    verb = "отмечено проверенными" if value else "снята отметка"
-    print(f"{verb}: {len(changed)} (в запросе {len(targets)})")
+    # «0 из 3» читается как отказ, хотя означает «уже было сделано».
+    # Разделяем новые отметки и повтор, иначе повторный запуск выглядит сбоем.
+    already = len(targets) - len(changed)
+    if value:
+        line = f"новых отметок: {len(changed)}"
+        if already:
+            line += f", уже было отмечено: {already}"
+    else:
+        line = f"снято отметок: {len(changed)}"
+        if already:
+            line += f", и так не были отмечены: {already}"
+    print(line)
 
     remaining = [q.id for q in EvalDataset(questions=updated).ready if not q.reviewed_by_human]
     if remaining:

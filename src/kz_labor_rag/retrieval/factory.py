@@ -37,7 +37,7 @@ def build_encoder(config: Config, *, use_cache: bool = True) -> Encoder:
     cache = None
     if use_cache and config.get("embeddings.cache.enabled"):
         cache = EmbeddingCache(
-            directory=config.get("embeddings.cache.dir"),
+            directory=config.path_of("embeddings.cache.dir"),
             model=params.model,
             chunking_signature=chunking_signature(build_chunking_params(config)),
             passage_prefix=params.passage_prefix,

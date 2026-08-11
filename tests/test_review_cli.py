@@ -128,3 +128,30 @@ class TestFileIntegrity:
             for line in dataset_file.read_text(encoding="utf-8").splitlines()
         ]
         assert ids == sorted(ids)
+
+
+class TestMessages:
+    """Сообщения не должны читаться как отказ, когда всё в порядке."""
+
+    def test_first_marking_reports_new_marks(self, dataset_file, capsys):
+        run(dataset_file, "mark", "syn_001", "syn_002")
+        assert "новых отметок: 2" in capsys.readouterr().out
+
+    def test_repeat_separates_new_from_already_done(self, dataset_file, capsys):
+        # «0 (в запросе 3)» читалось как сбой, хотя означало «уже сделано».
+        run(dataset_file, "mark", "syn_001")
+        capsys.readouterr()
+        run(dataset_file, "mark", "syn_001")
+        out = capsys.readouterr().out
+        assert "новых отметок: 0" in out
+        assert "уже было отмечено: 1" in out
+
+    def test_no_tail_when_nothing_was_already_marked(self, dataset_file, capsys):
+        run(dataset_file, "mark", "syn_001")
+        assert "уже было отмечено" not in capsys.readouterr().out
+
+    def test_unmark_wording(self, dataset_file, capsys):
+        run(dataset_file, "unmark", "syn_003", "syn_001")
+        out = capsys.readouterr().out
+        assert "снято отметок: 1" in out
+        assert "и так не были отмечены: 1" in out

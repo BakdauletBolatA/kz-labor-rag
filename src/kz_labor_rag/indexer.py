@@ -131,7 +131,7 @@ def build_index(
 
     started = time.perf_counter()
 
-    raw = config.get("corpus.raw_html")
+    raw = config.path_of("corpus.raw_html")
     if not Path(raw).exists():
         raise FileNotFoundError(
             f"сырой HTML не найден: {raw}. "

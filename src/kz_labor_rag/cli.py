@@ -46,7 +46,7 @@ def build_retriever(config: Config) -> Retriever:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    dataset = load_dataset(args.dataset or config.get("eval.dataset"))
+    dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
 
     print(f"Датасет: {dataset.path}")
     for key, value in dataset.stats.items():
@@ -73,7 +73,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    dataset = load_dataset(args.dataset or config.get("eval.dataset"))
+    dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
 
     # Отсутствие ключа API отключает генерацию и судью с предупреждением
     # в лог, но не мешает посчитать все метрики поиска.
@@ -93,7 +93,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(exc, file=sys.stderr)
         return 1
 
-    path = save_result(result, args.results_dir or config.get("eval.results_dir"))
+    path = save_result(result, args.results_dir or config.path_of("eval.results_dir"))
     print(f"Результат записан: {path}")
     _print_aggregates(result)
     return 0

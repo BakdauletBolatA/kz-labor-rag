@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 def _load(args) -> tuple:
     config = load_config(args.config)
-    raw = args.raw or config.get("corpus.raw_html")
+    raw = args.raw or config.path_of("corpus.raw_html")
     if not Path(raw).exists():
         raise ParseError(
             f"сырой HTML не найден: {raw}\n"
@@ -82,7 +82,7 @@ def cmd_show(args) -> int:
 
 def cmd_dump(args) -> int:
     config, code = _load(args)
-    out = Path(args.out or "data/processed/labor_code.json")
+    out = Path(args.out or config.root / "data/processed/labor_code.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "parser_version": code.parser_version,
@@ -119,7 +119,7 @@ def cmd_check_dataset(args) -> int:
     и вопрос с ней непроходим в принципе.
     """
     config, code = _load(args)
-    dataset = load_dataset(args.dataset or config.get("eval.dataset"))
+    dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
     report = validate_against_corpus(
         dataset,
         code.article_texts(),
@@ -155,7 +155,12 @@ def cmd_check_dataset(args) -> int:
         print(f"\nВсего проблем разметки: {problems}")
         return 1
 
-    print(f"Разметка сверена с корпусом: {len(dataset)} вопросов, расхождений нет.")
+    # Печатать длину файла нельзя: у черновых слотов разметки нет, валидатор
+    # их пропускает, и отчёт про «60 вопросов» обещал бы больше проверенного,
+    # чем проверено на самом деле.
+    skipped = len(dataset) - len(dataset.ready)
+    tail = f" ({skipped} черновых слотов пропущено)" if skipped else ""
+    print(f"Разметка сверена с корпусом: {len(dataset.ready)} вопросов, расхождений нет{tail}.")
     return 0
 
 

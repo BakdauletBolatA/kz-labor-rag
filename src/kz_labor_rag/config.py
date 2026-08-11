@@ -20,6 +20,37 @@ import yaml
 
 DEFAULT_CONFIG_PATH = Path("config/default.yaml")
 
+# По этому файлу опознаётся корень репозитория.
+ROOT_MARKER = "pyproject.toml"
+
+
+def _walk_up(start: Path) -> Path | None:
+    for candidate in (start, *start.parents):
+        if (candidate / ROOT_MARKER).exists():
+            return candidate
+    return None
+
+
+def find_repo_root(start: Path | None = None) -> Path | None:
+    """Найти корень репозитория.
+
+    Сначала вверх от текущего каталога — это покрывает запуск из любого места
+    внутри репозитория. Если не нашлось, пробуем от каталога установленного
+    пакета: при установке через ``pip install -e`` он лежит в ``src/`` внутри
+    того же репозитория, и это единственная зацепка, когда команду запускают
+    вообще из другого места — например, из домашнего каталога, откуда вверх
+    подниматься некуда.
+
+    При обычной установке в site-packages ``pyproject.toml`` выше пакета нет,
+    поиск вернёт ``None``, и поведение останется прежним — путями от текущего
+    каталога. В Docker это и нужно: рабочий каталог там ``/app``.
+    """
+    if found := _walk_up((start or Path.cwd()).resolve()):
+        return found
+    if start is not None:
+        return None
+    return _walk_up(Path(__file__).resolve().parent)
+
 # Значения, которые допустимо переопределить переменной окружения.
 # Всё остальное меняется только правкой YAML — иначе прогон невоспроизводим.
 ENV_OVERRIDES: dict[str, str] = {
@@ -42,6 +73,8 @@ class Config:
 
     data: dict[str, Any]
     path: Path | None = None
+    # Каталог, относительно которого разрешаются относительные пути из конфига.
+    root: Path | None = None
 
     def get(self, dotted: str) -> Any:
         node: Any = self.data
@@ -80,6 +113,18 @@ class Config:
     # chunker.chunking_signature, и в результат прогона она попадает из
     # index_meta, то есть из того индекса, на котором поиск реально работал.
 
+    def path_of(self, dotted: str) -> Path:
+        """Значение конфига как путь, разрешённый от корня репозитория.
+
+        В конфиге пути записаны относительными — так их удобно читать и они
+        одинаковы в Docker и локально. Но разрешать их относительно текущего
+        каталога значит требовать запускать всё только из корня.
+        """
+        value = Path(str(self.get(dotted)))
+        if value.is_absolute() or self.root is None:
+            return value
+        return self.root / value
+
     @property
     def fingerprint(self) -> str:
         """Отпечаток всего конфига. Пишется в результат прогона: по нему видно,
@@ -99,9 +144,22 @@ def _set_dotted(data: dict[str, Any], dotted: str, value: Any) -> None:
 
 def load_config(path: str | Path | None = None, *, apply_env: bool = True) -> Config:
     """Прочитать YAML и наложить разрешённые переменные окружения."""
-    path = Path(path or os.environ.get("KZRAG_CONFIG", DEFAULT_CONFIG_PATH))
+    requested = Path(path or os.environ.get("KZRAG_CONFIG", DEFAULT_CONFIG_PATH))
+    root = find_repo_root()
+
+    path = requested
+    if not path.exists() and not path.is_absolute() and root is not None:
+        # Запуск не из корня репозитория — ищем конфиг от корня.
+        path = root / requested
     if not path.exists():
-        raise ConfigError(f"конфиг не найден: {path}")
+        raise ConfigError(
+            f"конфиг не найден: {requested}"
+            + (f" (искал также в {root})" if root is not None else "")
+        )
+
+    # Пути внутри конфига разрешаются от корня репозитория, а если корень не
+    # опознан — от каталога конфига, чтобы поведение оставалось предсказуемым.
+    root = root or path.resolve().parent.parent
 
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
@@ -112,4 +170,4 @@ def load_config(path: str | Path | None = None, *, apply_env: bool = True) -> Co
             if (raw := os.environ.get(env_name)) is not None:
                 _set_dotted(data, dotted, yaml.safe_load(raw))
 
-    return Config(data=data, path=path)
+    return Config(data=data, path=path, root=root)
