@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import pytest
 
@@ -18,13 +18,20 @@ from kz_labor_rag.eval.judge import Judgement
 from kz_labor_rag.types import Chunk, RetrievedChunk
 
 
-def make_chunk(article: str, clauses: tuple[str, ...] = (), text: str = "", cid: str = "") -> Chunk:
+def make_chunk(
+    article: str,
+    clauses: tuple[str, ...] = (),
+    text: str = "",
+    cid: str = "",
+    extra_articles: tuple[str, ...] = (),
+) -> Chunk:
+    """Чанк одной статьи. ``extra_articles`` — для чанков, перешедших границу."""
     return Chunk(
         chunk_id=cid or f"a{article}-{'_'.join(clauses) or '0'}",
         text=text or f"Текст статьи {article}.",
-        article=article,
+        articles=(article, *extra_articles),
+        spans=tuple((article, c) for c in clauses),
         article_title=f"Статья {article}",
-        clauses=clauses,
     )
 
 

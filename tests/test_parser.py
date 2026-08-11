@@ -176,10 +176,7 @@ class TestClauseSplitting:
         assert parse_labor_code(html).by_number["52"].clause_numbers == ("1", "1-1")
 
     def test_unnumbered_text_is_not_lost(self):
-        html = page(
-            "<p><b>Статья 60. Заголовок</b></p>"
-            "<p>&nbsp; Текст без нумерации пунктов.</p>"
-        )
+        html = page("<p><b>Статья 60. Заголовок</b></p><p>&nbsp; Текст без нумерации пунктов.</p>")
         a = parse_labor_code(html).by_number["60"]
         assert a.clause_numbers == ("",)
         assert a.text == "Текст без нумерации пунктов."
@@ -306,7 +303,10 @@ class TestRealCorpus:
 
     def test_known_article_parsed_correctly(self, code):
         a = code.by_number["54"]
-        assert a.title == "Ограничение возможности расторжения трудового договора по инициативе работодателя"
+        assert (
+            a.title
+            == "Ограничение возможности расторжения трудового договора по инициативе работодателя"
+        )
         assert a.chapter == "Глава 4. ТРУДОВОЙ ДОГОВОР"
         assert a.clause_numbers == ("1", "2")
         assert a.clauses[0].text.startswith(

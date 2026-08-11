@@ -1,41 +1,46 @@
 """CLI eval-харнесса.
 
-    kzrag-eval validate            # проверить датасет: схема, гейт, сверка с корпусом
-    kzrag-eval run                 # прогнать eval и записать JSON
-    kzrag-eval show <result.json>  # показать агрегаты и проваленные вопросы
+kzrag-eval validate            # проверить датасет: схема, гейт, сверка с корпусом
+kzrag-eval run                 # прогнать eval и записать JSON
+kzrag-eval show <result.json>  # показать агрегаты и проваленные вопросы
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
-
-import logging
 
 from kz_labor_rag.config import Config, ConfigError, load_config
 from kz_labor_rag.eval.dataset import CompletenessRule, DatasetError, load_dataset
 from kz_labor_rag.eval.factory import build_generator, build_judge
 from kz_labor_rag.eval.prompts import PromptRegistryError
 from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
+from kz_labor_rag.indexer import index_mismatch
+from kz_labor_rag.retrieval.factory import build_retriever as _build_dense
+from kz_labor_rag.retrieval.store import StoreError
 from kz_labor_rag.types import Retriever
 
 
 def build_retriever(config: Config) -> Retriever:
-    """Собрать поиск по конфигу.
-
-    Пока реализаций нет: харнесс по плану собирается раньше RAG. Сообщение об
-    ошибке должно объяснять это, а не выглядеть поломкой.
-    """
-    backend = config.get_or("retrieval.implementation", None)
-    if backend is None:
+    """Собрать поиск по конфигу и убедиться, что индекс ему соответствует."""
+    backend = config.get("retrieval.implementation")
+    if backend != "dense":
         raise NotImplementedError(
-            "Поиск ещё не реализован — это ожидаемо: харнесс собирается до RAG.\n"
-            "Задайте retrieval.implementation в конфиге, когда появится baseline (пункт 4 плана).\n"
-            "Сейчас доступна команда: kzrag-eval validate"
+            f"реализация поиска '{backend}' пока не поддержана. "
+            "В baseline это 'dense'; гибрид и reranking — отдельные итерации."
         )
-    raise NotImplementedError(f"неизвестная реализация поиска: {backend!r}")
+
+    retriever = _build_dense(config)
+    if problem := index_mismatch(config, retriever.store):
+        raise StoreError(
+            f"{problem}\n"
+            "Прогон на индексе, не соответствующем конфигу, даёт правдоподобные, "
+            "но бессмысленные числа."
+        )
+    return retriever
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -140,7 +145,13 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
         return args.func(args)
-    except (ConfigError, DatasetError, PromptRegistryError, NotImplementedError) as exc:
+    except (
+        ConfigError,
+        DatasetError,
+        PromptRegistryError,
+        StoreError,
+        NotImplementedError,
+    ) as exc:
         # Ожидаемые состояния проекта — незаполненный конфиг, отсутствующий
         # датасет, ещё не реализованный поиск. Трейсбек здесь только мешает
         # прочитать, что именно нужно сделать.

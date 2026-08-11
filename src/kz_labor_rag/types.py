@@ -7,8 +7,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 def normalize_clause(clause: str) -> str:
@@ -61,27 +62,54 @@ class ClauseRef:
 class Chunk:
     """Единица индексации.
 
-    ``clauses`` — номера пунктов, которые чанк задевает целиком или частично.
     Наивный baseline режет текст по 512 токенов без учёта структуры, поэтому
-    один чанк там легко перекрывает несколько пунктов и даже несколько статей.
-    Поле ``article`` в таком случае хранит статью, которой принадлежит начало
-    чанка: это сознательная слабость baseline, и она обязана быть видна в
-    метриках, а не замазана на этапе разметки.
+    один чанк легко перекрывает несколько пунктов и даже границу между
+    статьями. Отсюда два поля вместо одного:
+
+    ``spans`` — все пары (статья, пункт), текст которых попал в чанк.
+    ``articles`` — статьи из ``spans`` в порядке документа.
+
+    Чанк засчитывается за **каждую** статью, текст которой в нём есть, а не
+    только за ту, с которой он начинается. Иначе recall падал бы из-за того,
+    как мы решили подписывать чанки, а не из-за качества поиска, и разница
+    между baseline и structure-aware чанкингом оказалась бы артефактом
+    разметки. Слабость наивного чанкинга и так видна — в clause-метриках и
+    в том, что один чанк тащит за собой посторонние статьи.
     """
 
     chunk_id: str
     text: str
-    article: str
+    articles: tuple[str, ...]
+    spans: tuple[tuple[str, str], ...] = ()
     article_title: str = ""
-    clauses: tuple[str, ...] = ()
     section: str = ""
     chapter: str = ""
     char_start: int = 0
     char_end: int = 0
     extra: dict[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not self.articles:
+            raise ValueError("чанк обязан относиться хотя бы к одной статье")
+        object.__setattr__(self, "articles", tuple(normalize_article(a) for a in self.articles))
+        object.__setattr__(
+            self,
+            "spans",
+            tuple((normalize_article(a), normalize_clause(c)) for a, c in self.spans),
+        )
+
+    @property
+    def article(self) -> str:
+        """Статья, с которой чанк начинается. Для отладки и отображения."""
+        return self.articles[0]
+
+    @property
+    def clauses(self) -> tuple[str, ...]:
+        """Пункты головной статьи чанка."""
+        return tuple(c for a, c in self.spans if a == self.article)
+
     def covers(self, ref: ClauseRef) -> bool:
-        return self.article == ref.article and normalize_clause(ref.clause) in self.clauses
+        return (ref.article, normalize_clause(ref.clause)) in self.spans
 
 
 @dataclass(frozen=True)
@@ -106,6 +134,10 @@ class RetrievedChunk:
         return self.chunk.article
 
     @property
+    def articles(self) -> tuple[str, ...]:
+        return self.chunk.articles
+
+    @property
     def text(self) -> str:
         return self.chunk.text
 
@@ -126,5 +158,4 @@ class Retriever(Protocol):
     def version(self) -> str:
         """Метка версии пайплайна, попадающая в результат прогона."""
 
-    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
-        ...
+    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]: ...

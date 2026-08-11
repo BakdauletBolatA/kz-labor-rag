@@ -8,8 +8,8 @@
 from __future__ import annotations
 
 import pytest
-
 from conftest import make_chunk, ranked
+
 from kz_labor_rag.eval import metrics as M
 from kz_labor_rag.types import ClauseRef, RetrievedChunk
 
@@ -78,7 +78,9 @@ class TestReciprocalRank:
     def test_counts_beyond_k_deliberately(self):
         # MRR намеренно не обрезается по k: «нашлось на 8-м месте» и
         # «не нашлось вообще» должны различаться.
-        assert M.reciprocal_rank(["54"], [str(i) for i in range(1, 8)] + ["54"]) == pytest.approx(1 / 8)
+        assert M.reciprocal_rank(["54"], [str(i) for i in range(1, 8)] + ["54"]) == pytest.approx(
+            1 / 8
+        )
 
     def test_takes_first_of_several_required(self):
         assert M.reciprocal_rank(["52", "54"], ["1", "54", "52"]) == pytest.approx(0.5)

@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from conftest import FakeGenerator, FakeJudge, FakeRetriever, ranked
+
 from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
 from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
 
@@ -198,3 +198,70 @@ class TestResultShape:
         save_result(result, tmp_path)
         with pytest.raises(FileExistsError):
             save_result(result, tmp_path)
+
+
+class TestHumanReviewGate:
+    """Гейт ревью — в коде, а не в договорённости.
+
+    Один неотревьюированный вопрос из шестидесяти обязан останавливать
+    прогон целиком: иначе baseline считается по эталону, который никто
+    не проверял, и все дальнейшие сравнения опираются на непроверенные числа.
+    """
+
+    def _reviewed(self, n_ru: int = 60, n_kk: int = 15) -> list[EvalQuestion]:
+        return [
+            q(
+                f"r{i}",
+                question=f"вопрос {i}",
+                origin="real" if i < 15 else "synthetic",
+                reviewed_by_human=True,
+            )
+            for i in range(n_ru)
+        ] + [
+            q(f"k{i}", question=f"сұрақ {i}", lang="kk", reviewed_by_human=True)
+            for i in range(n_kk)
+        ]
+
+    def test_fully_reviewed_dataset_runs(self, config):
+        ds = EvalDataset(questions=tuple(self._reviewed()))
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
+        assert result["aggregates"]["primary"]["n"] == 60
+
+    def test_single_unreviewed_question_blocks_the_run(self, config):
+        questions = self._reviewed()
+        questions[37] = q("r37", question="вопрос 37", reviewed_by_human=False)
+        ds = EvalDataset(questions=tuple(questions))
+
+        with pytest.raises(DatasetNotReadyError) as exc:
+            EvalRunner(config, FakeRetriever({})).run(ds)
+        assert "не отревьюировано человеком: r37" in str(exc.value)
+
+    def test_default_is_unreviewed(self):
+        # Дефолт false: вопрос считается непроверенным, пока не сказано обратное.
+        raw = {k: v for k, v in BASE.items() if k != "reviewed_by_human"}
+        assert EvalQuestion.from_dict({"id": "r1", **raw}).reviewed_by_human is False
+
+    def test_review_flag_survives_roundtrip(self, tmp_path):
+        from kz_labor_rag.eval.dataset import load_dataset, save_dataset
+
+        ds = EvalDataset(
+            questions=(
+                q("r1", question="в", reviewed_by_human=True),
+                q("r2", question="в2", reviewed_by_human=False),
+            )
+        )
+        path = tmp_path / "ds.jsonl"
+        save_dataset(ds, path)
+        loaded = load_dataset(path)
+        assert [x.reviewed_by_human for x in loaded] == [True, False]
+
+    def test_gate_ignores_review_flag_on_drafts(self, config):
+        # Черновой слот нельзя отревьюировать — вопроса ещё нет.
+        draft = EvalQuestion.from_dict(
+            {"id": "real_099", "lang": "ru", "origin": "real", "status": "draft"}
+        )
+        ds = EvalDataset(questions=tuple(self._reviewed()) + (draft,))
+        result = EvalRunner(
+            config, FakeRetriever({x.question: ranked("54") for x in ds.ready})
+        ).run(ds)
+        assert result["aggregates"]["primary"]["n"] == 60

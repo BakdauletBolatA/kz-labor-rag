@@ -11,8 +11,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
 from kz_labor_rag.types import RetrievedChunk
@@ -59,8 +60,7 @@ class Judge(Protocol):
     def descriptor(self) -> dict[str, str]:
         """Что записать в результат прогона: бэкенд, модель, версия промпта."""
 
-    def judge(self, question: str, context: Sequence[RetrievedChunk], answer: str) -> Judgement:
-        ...
+    def judge(self, question: str, context: Sequence[RetrievedChunk], answer: str) -> Judgement: ...
 
 
 def format_context(chunks: Sequence[RetrievedChunk]) -> str:

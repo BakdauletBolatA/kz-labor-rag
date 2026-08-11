@@ -31,7 +31,7 @@ from pathlib import Path
 
 from selectolax.parser import HTMLParser
 
-from kz_labor_rag.types import article_sort_key, normalize_article
+from kz_labor_rag.types import normalize_article
 
 PARSER_VERSION = "1.0"
 

@@ -290,9 +290,7 @@ def write_review(dataset: EvalDataset, code) -> None:
         lines += [f"## {tag}", ""]
         for q in (x for x in ready if tag in x.tags):
             arts = ", ".join(f"ст. {n}" for n in q.required_articles)
-            titles = "; ".join(
-                by_number[n].title for n in q.required_articles if n in by_number
-            )
+            titles = "; ".join(by_number[n].title for n in q.required_articles if n in by_number)
             lines.append(f"### {q.id} — {arts}")
             lines.append("")
             lines.append(f"**Вопрос:** {q.question}")
@@ -403,7 +401,9 @@ def main() -> int:
         code.article_texts(),
         {a.number: a.clause_numbers for a in code},
     )
-    problems += [f"{qid}: цитата не найдена в тексте обязательных статей" for qid in report.quote_not_found]
+    problems += [
+        f"{qid}: цитата не найдена в тексте обязательных статей" for qid in report.quote_not_found
+    ]
     problems += [f"{qid}: {ref} — такого пункта нет" for qid, ref in report.missing_clauses]
 
     if problems:

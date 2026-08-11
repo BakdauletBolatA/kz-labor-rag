@@ -1,9 +1,9 @@
 """CLI парсера корпуса.
 
-    kzrag-corpus stats            # разобрать и показать статистику
-    kzrag-corpus show 54          # показать разобранную статью
-    kzrag-corpus dump             # выгрузить разбор в JSON
-    kzrag-corpus check-dataset    # сверить эталон датасета с текстом кодекса
+kzrag-corpus stats            # разобрать и показать статистику
+kzrag-corpus show 54          # показать разобранную статью
+kzrag-corpus dump             # выгрузить разбор в JSON
+kzrag-corpus check-dataset    # сверить эталон датасета с текстом кодекса
 """
 
 from __future__ import annotations
@@ -127,9 +127,7 @@ def cmd_check_dataset(args) -> int:
     )
 
     repealed = {a.number for a in code if a.is_repealed}
-    hits_repealed = [
-        (q.id, num) for q in dataset for num in q.required_articles if num in repealed
-    ]
+    hits_repealed = [(q.id, num) for q in dataset for num in q.required_articles if num in repealed]
 
     problems = 0
     if report.missing_articles:

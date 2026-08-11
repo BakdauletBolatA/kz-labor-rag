@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Sequence
 
 from kz_labor_rag.types import ClauseRef, RetrievedChunk
 
@@ -22,13 +22,19 @@ def rank_articles(chunks: Sequence[RetrievedChunk]) -> list[str]:
     порождает несколько чанков, поэтому статья занимает ранг своего лучшего
     чанка, а её повторы выбрасываются. Порядок чанков считается уже
     отсортированным по убыванию релевантности.
+
+    Чанк засчитывается за все статьи, текст которых в него попал, а не только
+    за головную: при наивном чанкинге по 512 токенов чанк регулярно пересекает
+    границу статей, и учитывать только первую значило бы штрафовать поиск за
+    способ нарезки, а не за качество выдачи.
     """
     seen: set[str] = set()
     ranked: list[str] = []
     for chunk in chunks:
-        if chunk.article not in seen:
-            seen.add(chunk.article)
-            ranked.append(chunk.article)
+        for article in chunk.articles:
+            if article not in seen:
+                seen.add(article)
+                ranked.append(article)
     return ranked
 
 
@@ -75,9 +81,7 @@ def reciprocal_rank(required: Iterable[str], ranked_articles: Sequence[str]) -> 
     return 0.0
 
 
-def clause_precision_at_k(
-    preferred: ClauseRef, chunks: Sequence[RetrievedChunk], k: int
-) -> float:
+def clause_precision_at_k(preferred: ClauseRef, chunks: Sequence[RetrievedChunk], k: int) -> float:
     """Доля чанков в топ-k, реально покрывающих эталонный пункт.
 
     Метрика справочная и считается только для вопросов с заполненным
@@ -119,7 +123,7 @@ def citation_validity(cited: Iterable[str], chunks: Sequence[RetrievedChunk]) ->
     cited_set = set(cited)
     if not cited_set:
         return 0.0
-    available = {chunk.article for chunk in chunks}
+    available = {article for chunk in chunks for article in chunk.articles}
     return len(cited_set & available) / len(cited_set)
 
 

@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Literal
 
 from kz_labor_rag.types import ClauseRef, article_sort_key, normalize_article, normalize_clause
 
@@ -65,7 +66,7 @@ class EvalQuestion:
         return self.status == "draft"
 
     @classmethod
-    def from_dict(cls, raw: dict, *, source: str = "<dict>") -> "EvalQuestion":
+    def from_dict(cls, raw: dict, *, source: str = "<dict>") -> EvalQuestion:
         def fail(msg: str) -> None:
             raise DatasetError(f"{source}: вопрос {raw.get('id', '<без id>')}: {msg}")
 
@@ -103,7 +104,9 @@ class EvalQuestion:
 
         preferred = None
         if pc := raw.get("preferred_clause"):
-            preferred = ClauseRef(article=normalize_article(pc["article"]), clause=str(pc["clause"]))
+            preferred = ClauseRef(
+                article=normalize_article(pc["article"]), clause=str(pc["clause"])
+            )
             if preferred.article not in required:
                 fail(
                     f"preferred_clause указывает на статью {preferred.article}, "
@@ -169,7 +172,7 @@ class EvalDataset:
     def __len__(self) -> int:
         return len(self.questions)
 
-    def slice(self, lang: Lang) -> "EvalDataset":  # noqa: D401
+    def slice(self, lang: Lang) -> EvalDataset:  # noqa: D401
         """Языковой срез.
 
         Русский и казахский срезы считаются раздельно и в EVALUATION.md идут
@@ -226,9 +229,7 @@ class CompletenessRule:
         if s["kk"] < self.min_kk:
             problems.append(f"казахских вопросов {s['kk']}, нужно минимум {self.min_kk}")
         if s["real"] < self.min_real:
-            problems.append(
-                f"вопросов с origin='real' {s['real']}, нужно минимум {self.min_real}"
-            )
+            problems.append(f"вопросов с origin='real' {s['real']}, нужно минимум {self.min_real}")
         if self.require_human_review:
             unreviewed = [q.id for q in dataset.ready if not q.reviewed_by_human]
             if unreviewed:

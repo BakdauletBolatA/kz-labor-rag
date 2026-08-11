@@ -17,10 +17,11 @@ import platform
 import statistics
 import subprocess
 import time
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from kz_labor_rag.config import Config
 from kz_labor_rag.eval import metrics as M
@@ -61,11 +62,7 @@ class QuestionRun:
             "required_articles": list(self.question.required_articles),
             "acceptable_articles": list(self.question.acceptable_articles),
             "retrieved": self.retrieved,
-            "metrics": {
-                k: v
-                for k, v in asdict(self.metrics).items()
-                if k not in ("question_id",)
-            },
+            "metrics": {k: v for k, v in asdict(self.metrics).items() if k not in ("question_id",)},
             "retrieval_failure": self.metrics.is_retrieval_failure,
             "latency_ms": self.latency_ms,
         }
@@ -261,7 +258,7 @@ class EvalRunner:
         if enforce_gate:
             self.check_dataset_ready(dataset)
 
-        started = datetime.now(timezone.utc)
+        started = datetime.now(UTC)
         t0 = time.perf_counter()
         # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
         runs = [self.run_question(q) for q in dataset.ready]
@@ -324,7 +321,5 @@ def save_result(result: dict[str, Any], results_dir: str | Path) -> Path:
     path = results_dir / f"{stamp}__{safe_version}.json"
     if path.exists():
         raise FileExistsError(f"результат уже существует: {path}")
-    path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path

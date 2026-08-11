@@ -113,9 +113,7 @@ class TestSlicesAndStats:
         assert [x.id for x in ds.slice("kk")] == ["k1"]
 
     def test_stats(self):
-        ds = EvalDataset(
-            questions=(q(id="r1"), q(id="r2", origin="real"), q(id="k1", lang="kk"))
-        )
+        ds = EvalDataset(questions=(q(id="r1"), q(id="r2", origin="real"), q(id="k1", lang="kk")))
         s = ds.stats
         assert s == {
             "total": 3,
@@ -147,8 +145,13 @@ class TestDraftSlots:
     def test_ready_question_still_requires_everything(self):
         with pytest.raises(DatasetError, match="evidence"):
             EvalQuestion.from_dict(
-                {"id": "x", "question": "в", "lang": "ru", "origin": "real",
-                 "required_articles": ["54"]}
+                {
+                    "id": "x",
+                    "question": "в",
+                    "lang": "ru",
+                    "origin": "real",
+                    "required_articles": ["54"],
+                }
             )
 
     def test_drafts_do_not_count_towards_the_gate(self):
@@ -235,9 +238,7 @@ class TestCorpusValidation:
     def test_quote_matching_ignores_whitespace_and_case(self):
         report = validate_against_corpus(
             EvalDataset(
-                questions=(
-                    q(evidence="НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора"),
-                )
+                questions=(q(evidence="НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора"),)
             ),
             self.CORPUS,
         )
@@ -263,8 +264,14 @@ class TestClauseValidation:
 
     def test_nonexistent_clause_caught(self):
         report = validate_against_corpus(
-            EvalDataset(questions=(q(preferred_clause={"article": "54", "clause": "9"},
-                                    evidence="Не допускается расторжение"),)),
+            EvalDataset(
+                questions=(
+                    q(
+                        preferred_clause={"article": "54", "clause": "9"},
+                        evidence="Не допускается расторжение",
+                    ),
+                )
+            ),
             self.CORPUS,
             {"54": ("1", "2")},
         )
@@ -273,8 +280,14 @@ class TestClauseValidation:
     def test_check_is_skipped_without_clause_map(self):
         # Лучше не проверять вовсе, чем угадывать по подстроке.
         report = validate_against_corpus(
-            EvalDataset(questions=(q(preferred_clause={"article": "54", "clause": "9"},
-                                    evidence="Не допускается расторжение"),)),
+            EvalDataset(
+                questions=(
+                    q(
+                        preferred_clause={"article": "54", "clause": "9"},
+                        evidence="Не допускается расторжение",
+                    ),
+                )
+            ),
             self.CORPUS,
         )
         assert report.missing_clauses == []
@@ -311,8 +324,15 @@ class TestShippedDataset:
     def test_required_topics_are_covered(self, dataset):
         counts = Counter(tag for x in dataset.ready for tag in x.tags)
         for tag in (
-            "увольнение", "отпуск", "рабочее-время", "оплата", "испытательный-срок",
-            "дисциплина", "изменение-условий", "срочный-договор", "совместительство",
+            "увольнение",
+            "отпуск",
+            "рабочее-время",
+            "оплата",
+            "испытательный-срок",
+            "дисциплина",
+            "изменение-условий",
+            "срочный-договор",
+            "совместительство",
         ):
             assert counts.get(tag, 0) > 0, f"тема '{tag}' не покрыта"
 
@@ -327,11 +347,15 @@ class TestShippedDataset:
     def test_questions_avoid_code_language(self, dataset):
         # Вопрос, написанный терминами статьи, retrieval находит тривиально,
         # и baseline оказывается завышен.
-        canned = ("каков порядок", "в соответствии с", "настоящего кодекса",
-                  "предусмотренных подпунктами", "регламентируется")
+        canned = (
+            "каков порядок",
+            "в соответствии с",
+            "настоящего кодекса",
+            "предусмотренных подпунктами",
+            "регламентируется",
+        )
         offenders = [
-            x.id for x in dataset.ready
-            if any(phrase in x.question.lower() for phrase in canned)
+            x.id for x in dataset.ready if any(phrase in x.question.lower() for phrase in canned)
         ]
         assert not offenders, f"вопросы написаны языком кодекса: {offenders}"
 

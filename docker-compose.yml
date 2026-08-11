@@ -1,0 +1,64 @@
+# docker compose up — поднимает всё одной командой.
+#
+# Первый запуск дольше остальных: контейнер скачивает текст кодекса, тянет
+# веса модели эмбеддингов и строит индекс на CPU. Это делает entrypoint,
+# а не человек руками, — иначе «одна команда» не была бы правдой.
+# Прогресс виден в логах api.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kzrag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kzrag}
+      POSTGRES_DB: ${POSTGRES_DB:-kzrag}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # api стартует только после того, как база реально отвечает:
+      # иначе первый запуск падает на гонке, а выглядит как ошибка конфига.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kzrag} -d ${POSTGRES_DB:-kzrag}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KZRAG_DATABASE_URL: postgresql://${POSTGRES_USER:-kzrag}:${POSTGRES_PASSWORD:-kzrag}@db:5432/${POSTGRES_DB:-kzrag}
+      KZRAG_CONFIG: ${KZRAG_CONFIG:-config/default.yaml}
+      # Ключ нужен только для /ask и для faithfulness. Без него поиск,
+      # recall@5 и MRR работают полностью.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Пропустить автоматическое построение индекса на старте.
+      KZRAG_SKIP_INDEX: ${KZRAG_SKIP_INDEX:-0}
+      # Кэш весов HuggingFace, чтобы пересборка образа не тянула модель заново.
+      HF_HOME: /cache/huggingface
+      TOKENIZERS_PARALLELISM: "false"
+    volumes:
+      # Сырой HTML и кэш эмбеддингов переживают пересоздание контейнера:
+      # переиндексация на CPU занимает минуты, терять её на каждом up дорого.
+      - ./data:/app/data
+      - ./evals:/app/evals
+      - ./config:/app/config
+      - hfcache:/cache/huggingface
+      - embcache:/app/.cache
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      start_period: 600s
+      retries: 5
+
+volumes:
+  pgdata:
+  hfcache:
+  embcache:

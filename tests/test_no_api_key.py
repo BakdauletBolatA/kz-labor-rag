@@ -10,8 +10,8 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from conftest import FakeRetriever, ranked
+
 from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
 from kz_labor_rag.eval.factory import build_generator, build_judge, missing_key_env
 from kz_labor_rag.eval.generator import AnthropicGenerator, DisabledGenerator
@@ -133,7 +133,9 @@ class TestFullRunWithoutKeys:
     def _kk(self, ds: EvalDataset) -> EvalDataset:
         return EvalDataset(
             questions=tuple(
-                EvalQuestion.from_dict({**q.to_dict(), "lang": "kk" if q.id.startswith("k") else "ru"})
+                EvalQuestion.from_dict(
+                    {**q.to_dict(), "lang": "kk" if q.id.startswith("k") else "ru"}
+                )
                 for q in ds
             )
         )

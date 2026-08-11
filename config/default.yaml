@@ -46,6 +46,10 @@ embeddings:
   query_prefix: "query: "
   passage_prefix: "passage: "
   normalize: true
+  # Предел длины входа модели. Сравнивается с длиной чанка ПЛЮС префикс и
+  # служебные токены: при chunk_size_tokens=512 хвост полного чанка модель
+  # отбрасывает молча, и об этом должно быть предупреждение при индексации.
+  max_sequence_length: 512
   batch_size: 32
   device: cpu
   cache:
@@ -59,6 +63,9 @@ embeddings:
 vector_store:
   backend: pgvector
   table: chunks
+  # DSN берётся из KZRAG_DATABASE_URL, если переменная задана: в Docker и
+  # локально адрес базы разный, а всё остальное обязано совпадать.
+  dsn: null
   # cosine | l2 | inner_product
   distance: cosine
   # baseline без ANN-индекса: на ~2-3 тыс. чанков точный перебор быстрее и
@@ -66,6 +73,8 @@ vector_store:
   index: none
 
 retrieval:
+  # dense — плотный поиск по косинусному сходству, реализация baseline.
+  implementation: dense
   top_k: 5
   # Сколько кандидатов достаётся до reranking. В baseline reranking нет,
   # поэтому равно top_k.

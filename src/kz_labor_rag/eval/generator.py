@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from kz_labor_rag.eval.judge import format_context
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
@@ -20,7 +21,8 @@ from kz_labor_rag.types import RetrievedChunk, normalize_article
 _ARTICLE_CITATION = re.compile(
     # Составные номера («ст. 73-1») обязаны ловиться целиком: иначе
     # citation_validity примет ссылку на 73-1 за ссылку на 73.
-    r"\b(?:ст\.?|стать[ияеёю]м?и?)\s*(\d{1,3}(?:-\d{1,2})?)", re.IGNORECASE
+    r"\b(?:ст\.?|стать[ияеёю]м?и?)\s*(\d{1,3}(?:-\d{1,2})?)",
+    re.IGNORECASE,
 )
 
 
@@ -66,11 +68,9 @@ class Generation:
 @runtime_checkable
 class Generator(Protocol):
     @property
-    def descriptor(self) -> dict[str, str]:
-        ...
+    def descriptor(self) -> dict[str, str]: ...
 
-    def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation:
-        ...
+    def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation: ...
 
 
 @dataclass
