@@ -120,7 +120,11 @@ def cmd_check_dataset(args) -> int:
     """
     config, code = _load(args)
     dataset = load_dataset(args.dataset or config.get("eval.dataset"))
-    report = validate_against_corpus(dataset, code.article_texts())
+    report = validate_against_corpus(
+        dataset,
+        code.article_texts(),
+        {a.number: a.clause_numbers for a in code},
+    )
 
     repealed = {a.number for a in code if a.is_repealed}
     hits_repealed = [

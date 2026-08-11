@@ -263,7 +263,8 @@ class EvalRunner:
 
         started = datetime.now(timezone.utc)
         t0 = time.perf_counter()
-        runs = [self.run_question(q) for q in dataset]
+        # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
+        runs = [self.run_question(q) for q in dataset.ready]
         wall = time.perf_counter() - t0
 
         by_lang = {

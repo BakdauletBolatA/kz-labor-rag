@@ -17,8 +17,9 @@ from kz_labor_rag.types import ClauseRef, article_sort_key, normalize_article, n
 
 Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
+Status = Literal["ready", "draft"]
 
-DATASET_SCHEMA_VERSION = "1.0"
+DATASET_SCHEMA_VERSION = "1.1"
 
 
 class DatasetError(ValueError):
@@ -37,6 +38,12 @@ class EvalQuestion:
 
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
+
+    ``status='draft'`` — незаполненный слот: сам вопрос ещё не написан или не
+    размечен. Черновики лежат в том же файле, что и готовые вопросы, чтобы
+    было видно, сколько ещё осталось, но не участвуют ни в метриках, ни в
+    подсчёте укомплектованности. Требования к обязательным полям к ним не
+    применяются — иначе пустой слот невозможно было бы записать.
     """
 
     id: str
@@ -48,18 +55,33 @@ class EvalQuestion:
     acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
+    status: Status = "ready"
     reviewed_by_human: bool = False
     notes: str = ""
     tags: tuple[str, ...] = ()
+
+    @property
+    def is_draft(self) -> bool:
+        return self.status == "draft"
 
     @classmethod
     def from_dict(cls, raw: dict, *, source: str = "<dict>") -> "EvalQuestion":
         def fail(msg: str) -> None:
             raise DatasetError(f"{source}: вопрос {raw.get('id', '<без id>')}: {msg}")
 
-        for key in ("id", "question", "lang", "origin", "required_articles", "evidence"):
-            if not raw.get(key):
-                fail(f"обязательное поле '{key}' пусто или отсутствует")
+        status = raw.get("status", "ready")
+        if status not in ("ready", "draft"):
+            fail(f"status='{status}', допустимы только 'ready' и 'draft'")
+
+        if not raw.get("id"):
+            fail("обязательное поле 'id' пусто или отсутствует")
+
+        if status == "ready":
+            for key in ("question", "lang", "origin", "required_articles", "evidence"):
+                if not raw.get(key):
+                    fail(f"обязательное поле '{key}' пусто или отсутствует")
+        elif not raw.get("lang") or not raw.get("origin"):
+            fail("даже у черновика должны быть заполнены 'lang' и 'origin'")
 
         if raw["lang"] not in ("ru", "kk"):
             fail(f"lang='{raw['lang']}', допустимы только 'ru' и 'kk'")
@@ -69,7 +91,7 @@ class EvalQuestion:
         # Номер статьи — строка: в кодексе есть статьи с составными номерами
         # («73-1», «126-1»). Числа в JSON принимаются и приводятся к строке,
         # чтобы разметка не ломалась из-за того, что кто-то написал 54, а не "54".
-        required = tuple(normalize_article(a) for a in raw["required_articles"])
+        required = tuple(normalize_article(a) for a in raw.get("required_articles") or ())
         acceptable = tuple(normalize_article(a) for a in raw.get("acceptable_articles") or ())
         overlap = set(required) & set(acceptable)
         if overlap:
@@ -90,14 +112,15 @@ class EvalQuestion:
 
         return cls(
             id=str(raw["id"]),
-            question=str(raw["question"]).strip(),
+            question=str(raw.get("question") or "").strip(),
             lang=raw["lang"],
             origin=raw["origin"],
             required_articles=required,
-            evidence=str(raw["evidence"]).strip(),
+            evidence=str(raw.get("evidence") or "").strip(),
             acceptable_articles=acceptable,
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
+            status=status,
             reviewed_by_human=bool(raw.get("reviewed_by_human", False)),
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
@@ -124,6 +147,7 @@ class EvalQuestion:
             "tags": list(self.tags),
             "lang": self.lang,
             "evidence": self.evidence,
+            "status": self.status,
             "reviewed_by_human": self.reviewed_by_human,
         }
         if self.notes:
@@ -145,7 +169,7 @@ class EvalDataset:
     def __len__(self) -> int:
         return len(self.questions)
 
-    def slice(self, lang: Lang) -> "EvalDataset":
+    def slice(self, lang: Lang) -> "EvalDataset":  # noqa: D401
         """Языковой срез.
 
         Русский и казахский срезы считаются раздельно и в EVALUATION.md идут
@@ -153,23 +177,30 @@ class EvalDataset:
         кроссязычностью там, где менялся retrieval, и наоборот.
         """
         return EvalDataset(
-            questions=tuple(q for q in self.questions if q.lang == lang),
+            questions=tuple(q for q in self.ready if q.lang == lang),
             path=self.path,
             schema_version=self.schema_version,
         )
 
     @property
+    def ready(self) -> tuple[EvalQuestion, ...]:
+        """Только заполненные вопросы. Всё, что считается, считается по ним."""
+        return tuple(q for q in self.questions if not q.is_draft)
+
+    @property
     def stats(self) -> dict[str, int]:
-        by_lang = Counter(q.lang for q in self.questions)
-        by_origin = Counter(q.origin for q in self.questions)
+        ready = self.ready
+        by_lang = Counter(q.lang for q in ready)
+        by_origin = Counter(q.origin for q in ready)
         return {
-            "total": len(self.questions),
+            "total": len(ready),
             "ru": by_lang["ru"],
             "kk": by_lang["kk"],
             "real": by_origin["real"],
             "synthetic": by_origin["synthetic"],
-            "with_preferred_clause": sum(1 for q in self.questions if q.preferred_clause),
-            "reviewed_by_human": sum(1 for q in self.questions if q.reviewed_by_human),
+            "with_preferred_clause": sum(1 for q in ready if q.preferred_clause),
+            "reviewed_by_human": sum(1 for q in ready if q.reviewed_by_human),
+            "draft_slots": len(self.questions) - len(ready),
         }
 
 
@@ -199,7 +230,7 @@ class CompletenessRule:
                 f"вопросов с origin='real' {s['real']}, нужно минимум {self.min_real}"
             )
         if self.require_human_review:
-            unreviewed = [q.id for q in dataset if not q.reviewed_by_human]
+            unreviewed = [q.id for q in dataset.ready if not q.reviewed_by_human]
             if unreviewed:
                 shown = ", ".join(unreviewed[:10])
                 tail = f" и ещё {len(unreviewed) - 10}" if len(unreviewed) > 10 else ""
@@ -256,7 +287,9 @@ class CorpusValidationReport:
 
 
 def validate_against_corpus(
-    dataset: EvalDataset, article_texts: dict[str, str]
+    dataset: EvalDataset,
+    article_texts: dict[str, str],
+    article_clauses: dict[str, tuple[str, ...]] | None = None,
 ) -> CorpusValidationReport:
     """Проверить, что разметка вообще соответствует тексту кодекса.
 
@@ -275,7 +308,7 @@ def validate_against_corpus(
     normalized = {num: squash(text) for num, text in article_texts.items()}
     report = CorpusValidationReport()
 
-    for q in dataset:
+    for q in dataset.ready:
         for article in q.required_articles:
             if article not in normalized:
                 report.missing_articles.append((q.id, article))
@@ -285,10 +318,13 @@ def validate_against_corpus(
         if needle and haystacks and not any(needle in h for h in haystacks):
             report.quote_not_found.append(q.id)
 
-        if q.preferred_clause and q.preferred_clause.article in normalized:
-            clause = normalize_clause(q.preferred_clause.clause)
-            body = normalized[q.preferred_clause.article]
-            if f"{clause}." not in body and f"{clause})" not in body:
+        # Наличие пункта проверяется по разобранному списку номеров, а не
+        # поиском «4.» по тексту: парсер выносит номер пункта в отдельное поле,
+        # и в тексте статьи его уже нет. Без списка проверка пропускается —
+        # это честнее, чем угадывать по подстроке и врать в обе стороны.
+        if article_clauses is not None and q.preferred_clause:
+            known = article_clauses.get(q.preferred_clause.article)
+            if known is not None and normalize_clause(q.preferred_clause.clause) not in known:
                 report.missing_clauses.append((q.id, str(q.preferred_clause)))
 
     return report
