@@ -97,6 +97,10 @@ dataset: ## пересобрать синтетическую часть дат�
 dataset-check: ## сверить разметку эталона с текстом кодекса
 	$(VENV)/bin/kzrag-corpus check-dataset
 
+.PHONY: review
+review: ## сколько вопросов отревьюировано
+	$(VENV)/bin/kzrag-review status
+
 .PHONY: validate
 validate: ## проверить гейт готовности датасета
 	$(VENV)/bin/kzrag-eval validate
