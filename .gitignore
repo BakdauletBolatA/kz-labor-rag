@@ -1,0 +1,43 @@
+# --- секреты ---
+.env
+.env.*
+!.env.example
+
+# --- сырой корпус: не коммитим, воспроизводится по data/raw/SOURCE.md ---
+data/raw/*
+!data/raw/SOURCE.md
+!data/raw/CHECKSUM
+
+# --- производные артефакты корпуса ---
+data/processed/
+data/interim/
+
+# --- кэши эмбеддингов и весов моделей ---
+.cache/
+cache/
+models/
+*.faiss
+*.npy
+*.pt
+*.safetensors
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- ос и редакторы ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
