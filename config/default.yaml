@@ -1,0 +1,120 @@
+# Единственное место, где живут параметры чанкинга, поиска и eval.
+# В коде значений по умолчанию нет — код читает этот файл.
+#
+# Итерация из пункта 5 плана = ровно одно изменённое значение здесь
+# (или один новый компонент), новая метка version, прогон eval, коммит.
+
+# Метка версии пайплайна. Попадает в имя файла результата, в JSON и
+# в строку таблицы EVALUATION.md. Меняется на КАЖДОЙ итерации.
+version: baseline-v0
+
+# Человекочитаемое описание того, что эта версия меняет относительно
+# предыдущей. Одно изменение — одно предложение. Если тут хочется написать
+# «и ещё», значит итерация нарушает правило «одно изменение за раз».
+description: >-
+  Намеренно наивный baseline: чанки фиксированной длины без учёта структуры
+  документа, плотный поиск по косинусному сходству, без reranking.
+
+corpus:
+  raw_html: data/raw/adilet_K1500000414_rus.html
+  checksum_file: data/raw/CHECKSUM
+  # Отсекать примечания об изменениях («Законом РК от ...») из тела статей.
+  # Значение обязано быть одинаковым во всех итерациях, иначе цифры
+  # несравнимы. Меняется только как отдельная явная итерация.
+  strip_amendment_notes: true
+
+chunking:
+  # baseline: режем по токенам, структуру документа игнорируем.
+  # Варианты для будущих итераций: article, clause, article_with_parent_header
+  strategy: fixed_tokens
+  chunk_size_tokens: 512
+  chunk_overlap_tokens: 0
+  # Токенизатор для подсчёта длины чанка. Должен совпадать с моделью
+  # эмбеддингов, иначе «512 токенов» — не те 512 токенов.
+  tokenizer: intfloat/multilingual-e5-base
+  # Приклеивать ли заголовок статьи к каждому чанку. В baseline — нет:
+  # это одна из первых напрашивающихся гипотез, и она должна быть измерена
+  # отдельной итерацией, а не подарена baseline'у бесплатно.
+  prepend_article_header: false
+
+embeddings:
+  provider: huggingface        # huggingface | openai
+  model: intfloat/multilingual-e5-base
+  dimensions: 768
+  # e5 обучена на асимметричных префиксах. Перепутать их или забыть —
+  # тихая деградация качества без единой ошибки в логах.
+  query_prefix: "query: "
+  passage_prefix: "passage: "
+  normalize: true
+  batch_size: 32
+  device: cpu
+  cache:
+    enabled: true
+    dir: .cache/embeddings
+    # Ключ кэша = sha256(model + chunking_signature + text).
+    # Смена чанкинга инвалидирует кэш автоматически;
+    # смена модели пишет в соседнее пространство и не затирает старое.
+    key_fields: [model, chunking_signature, text]
+
+vector_store:
+  backend: pgvector
+  table: chunks
+  # cosine | l2 | inner_product
+  distance: cosine
+  # baseline без ANN-индекса: на ~2-3 тыс. чанков точный перебор быстрее и
+  # честнее. ivfflat/hnsw — отдельная итерация про скорость, не про качество.
+  index: none
+
+retrieval:
+  top_k: 5
+  # Сколько кандидатов достаётся до reranking. В baseline reranking нет,
+  # поэтому равно top_k.
+  candidate_k: 5
+  hybrid:
+    enabled: false
+    bm25_weight: 0.0
+    dense_weight: 1.0
+  reranker:
+    enabled: false
+    model: null
+  query_expansion:
+    enabled: false
+
+generation:
+  enabled: true
+  provider: anthropic
+  model: claude-sonnet-5
+  prompt_id: answer_ru
+  prompt_version: v1
+  max_tokens: 1024
+  temperature: 0.0
+
+judge:
+  enabled: true
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  prompt_id: faithfulness_ru
+  prompt_version: v1
+  max_tokens: 1024
+  temperature: 0.0
+
+eval:
+  dataset: evals/datasets/kz_labor_v1.jsonl
+  results_dir: evals/results
+  # k, на котором считаются recall@k и clause-метрики.
+  # Меняется только вместе с бампом metrics_version.
+  k: 5
+  languages: [ru, kk]
+  # Основной срез, по которому идут главные цифры в EVALUATION.md.
+  primary_language: ru
+  # Гейт: baseline не запускается на неукомплектованном датасете.
+  completeness:
+    enforce: true
+    min_ru: 60
+    min_kk: 15
+    min_real: 15
+    require_human_review: true
+  # Число повторов прогона генератора и судьи. LLM-часть шумит,
+  # и одиночный прогон выдаёт разброс за улучшение.
+  repeats: 1
+  seed: 20260811
