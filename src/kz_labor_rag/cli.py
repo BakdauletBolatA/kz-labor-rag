@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from kz_labor_rag.config import Config, ConfigError, load_config
+from kz_labor_rag.eval.compare import IncomparableRunsError, build_table
 from kz_labor_rag.eval.dataset import CompletenessRule, DatasetError, load_dataset
 from kz_labor_rag.eval.factory import build_generator, build_judge
 from kz_labor_rag.eval.prompts import PromptRegistryError
@@ -112,6 +113,18 @@ def _print_aggregates(result: dict) -> None:
             print(f"  провалы поиска ({len(failures)}): {', '.join(failures[:15])}")
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Построить таблицу «до/после» — или отказаться, если прогоны несравнимы."""
+    before = json.loads(Path(args.before).read_text(encoding="utf-8"))
+    after = json.loads(Path(args.after).read_text(encoding="utf-8"))
+    try:
+        print(build_table(before, after, language=args.language))
+    except IncomparableRunsError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_show(args: argparse.Namespace) -> int:
     result = json.loads(Path(args.result).read_text(encoding="utf-8"))
     _print_aggregates(result)
@@ -136,6 +149,12 @@ def main(argv: list[str] | None = None) -> int:
         help="прогнать на неукомплектованном датасете (результат нельзя писать в EVALUATION.md)",
     )
     p_run.set_defaults(func=cmd_run)
+
+    p_compare = sub.add_parser("compare", help="таблица «до/после» по двум прогонам")
+    p_compare.add_argument("before")
+    p_compare.add_argument("after")
+    p_compare.add_argument("--language", default=None, help="срез: ru или kk")
+    p_compare.set_defaults(func=cmd_compare)
 
     p_show = sub.add_parser("show", help="показать агрегаты из записанного JSON")
     p_show.add_argument("result")

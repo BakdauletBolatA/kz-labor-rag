@@ -252,6 +252,13 @@ class EvalRunner:
             "retrieval_failures": sorted(m.question_id for m in ms if m.is_retrieval_failure),
         }
 
+    def _provenance(self) -> dict[str, Any]:
+        """Чем построен индекс. Пусто, если поиск такого не сообщает."""
+        source = getattr(self.retriever, "provenance", None)
+        if source is None:
+            return {}
+        return dict(source() if callable(source) else source)
+
     # --- полный прогон ----------------------------------------------------
 
     def run(self, dataset: EvalDataset, *, enforce_gate: bool = True) -> dict[str, Any]:
@@ -273,6 +280,11 @@ class EvalRunner:
             for origin in ("real", "synthetic")
         }
 
+        provenance = self._provenance()
+        generator = self.generator.descriptor if self.generator else {}
+        judge = self.judge.descriptor if self.judge else {}
+        dataset_sha = _file_sha256(dataset.path)
+
         return {
             "schema_version": RESULT_SCHEMA_VERSION,
             "metrics_version": M.METRICS_VERSION,
@@ -281,22 +293,35 @@ class EvalRunner:
             "description": self.config.get_or("description", ""),
             "git": _git_state(),
             "config_fingerprint": self.config.fingerprint,
-            "chunking_signature": self.config.chunking_signature,
             "config": self.config.data,
+            # Всё, что обязано совпасть, чтобы два прогона можно было поставить
+            # в одну таблицу. Подпись чанкинга берётся из index_meta, то есть
+            # из индекса, на котором поиск реально работал: подпись, посчитанная
+            # по конфигу, не менялась при смене версии чанкера и пропустила бы
+            # перенарезку корпуса.
+            "comparability": {
+                "metrics_version": M.METRICS_VERSION,
+                "chunking_signature": provenance.get("chunking_signature"),
+                "embeddings_model": provenance.get("embeddings_model"),
+                "dataset_sha256": dataset_sha,
+                "generator_prompt": generator.get("prompt"),
+                "judge_prompt": judge.get("prompt"),
+            },
+            "index": provenance,
             "environment": {
                 "python": platform.python_version(),
                 "platform": platform.platform(),
             },
             "dataset": {
                 "path": str(dataset.path) if dataset.path else None,
-                "sha256": _file_sha256(dataset.path),
+                "sha256": dataset_sha,
                 "schema_version": dataset.schema_version,
                 "stats": dataset.stats,
             },
             "components": {
-                "retriever": {"version": self.retriever.version},
-                "generator": self.generator.descriptor if self.generator else None,
-                "judge": self.judge.descriptor if self.judge else None,
+                "retriever": {"version": self.retriever.version, **provenance},
+                "generator": generator or None,
+                "judge": judge or None,
             },
             "aggregates": {
                 "primary": by_lang.get(self.config.get("eval.primary_language"), {}),

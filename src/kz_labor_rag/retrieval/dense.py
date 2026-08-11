@@ -49,6 +49,25 @@ class DenseRetriever:
             **{f"encoder_{k}": v for k, v in self.encoder.descriptor.items()},
         }
 
+    def provenance(self) -> dict[str, str | None]:
+        """Чем построен индекс, на котором работает этот поиск.
+
+        Берётся из index_meta, а не из конфига: важно не то, что в конфиге
+        написано, а то, на чём поиск фактически выполняется.
+        """
+        meta = self.store.read_meta() or {}
+        return {
+            key: meta.get(key)
+            for key in (
+                "chunking_signature",
+                "embeddings_model",
+                "corpus_edition_date",
+                "parser_version",
+                "chunks",
+                "max_encoded_tokens",
+            )
+        }
+
     def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
         if self.store.count() == 0:
             raise StoreError(

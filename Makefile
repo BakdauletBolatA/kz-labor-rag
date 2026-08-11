@@ -109,6 +109,10 @@ validate: ## проверить гейт готовности датасета
 failures: ## показать вопросы, где эталон не попал в топ-k
 	$(VENV)/bin/kzrag-search --failures
 
+.PHONY: compare
+compare: ## таблица «до/после»: make compare A=... B=...
+	$(VENV)/bin/kzrag-eval compare $(A) $(B)
+
 .PHONY: eval
 eval: ## прогнать eval и записать результат
 	$(VENV)/bin/kzrag-eval run
