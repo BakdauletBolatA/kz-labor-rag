@@ -73,53 +73,90 @@ class TestPrefixes:
         assert d["passage_prefix"] == "passage: "
 
 
+def cache(tmp_path, *, model="m", signature="sig", prefix="passage: ", normalize=True):
+    return EmbeddingCache(
+        tmp_path,
+        model=model,
+        chunking_signature=signature,
+        passage_prefix=prefix,
+        normalize=normalize,
+    )
+
+
 class TestCache:
     def test_roundtrip(self, tmp_path):
-        cache = EmbeddingCache(tmp_path, model="m", chunking_signature="sig")
+        c = cache(tmp_path)
         vectors = np.arange(16, dtype=np.float32).reshape(2, 8)
-        cache.put_many(["a", "b"], vectors)
-        got = cache.get_many(["a", "b"])
+        c.put_many(["a", "b"], vectors)
+        got = c.get_many(["a", "b"])
         assert np.allclose(got[0], vectors[0])
         assert np.allclose(got[1], vectors[1])
 
     def test_miss_returns_nothing_for_unknown_text(self, tmp_path):
-        cache = EmbeddingCache(tmp_path, model="m", chunking_signature="sig")
-        cache.put_many(["a"], np.zeros((1, 8), dtype=np.float32))
-        assert cache.get_many(["b"]) == {}
+        c = cache(tmp_path)
+        c.put_many(["a"], np.zeros((1, 8), dtype=np.float32))
+        assert c.get_many(["b"]) == {}
 
     def test_chunking_change_invalidates_cache(self, tmp_path):
         # Смена нарезки обязана обесценить старые векторы автоматически.
-        old = EmbeddingCache(tmp_path, model="m", chunking_signature="sig-1")
-        old.put_many(["текст"], np.zeros((1, 8), dtype=np.float32))
-        new = EmbeddingCache(tmp_path, model="m", chunking_signature="sig-2")
-        assert new.get_many(["текст"]) == {}
+        cache(tmp_path, signature="sig-1").put_many(["текст"], np.zeros((1, 8), dtype=np.float32))
+        assert cache(tmp_path, signature="sig-2").get_many(["текст"]) == {}
+
+    def test_prefix_change_invalidates_cache(self, tmp_path):
+        # Вектор считается от «префикс + текст». Если префикс не входит в ключ,
+        # смена префикса вернёт векторы, посчитанные со старым, — правдоподобные
+        # и неверные, причём молча.
+        cache(tmp_path, prefix="passage: ").put_many(
+            ["текст"], np.ones((1, 8), dtype=np.float32)
+        )
+        assert cache(tmp_path, prefix="документ: ").get_many(["текст"]) == {}
+
+    def test_normalize_change_invalidates_cache(self, tmp_path):
+        # Нормализация меняет сам вектор, значит входит в ключ.
+        cache(tmp_path, normalize=True).put_many(["текст"], np.ones((1, 8), dtype=np.float32))
+        assert cache(tmp_path, normalize=False).get_many(["текст"]) == {}
+
+    def test_same_parameters_hit_the_cache(self, tmp_path):
+        cache(tmp_path).put_many(["текст"], np.ones((1, 8), dtype=np.float32))
+        assert cache(tmp_path).get_many(["текст"]) != {}
+
+    def test_key_covers_every_vector_affecting_parameter(self, tmp_path):
+        base = cache(tmp_path).key("текст")
+        variants = {
+            "модель": cache(tmp_path, model="other").key("текст"),
+            "префикс": cache(tmp_path, prefix="q: ").key("текст"),
+            "нормализация": cache(tmp_path, normalize=False).key("текст"),
+            "чанкинг": cache(tmp_path, signature="other").key("текст"),
+            "текст": cache(tmp_path).key("другой текст"),
+        }
+        collisions = [name for name, key in variants.items() if key == base]
+        assert not collisions, f"эти параметры не влияют на ключ кэша: {collisions}"
 
     def test_model_change_uses_separate_storage(self, tmp_path):
         # Смена модели не затирает уже посчитанное: вернуться назад можно
         # без переиндексации.
-        a = EmbeddingCache(tmp_path, model="model-a", chunking_signature="sig")
+        a = cache(tmp_path, model="model-a")
         a.put_many(["текст"], np.ones((1, 8), dtype=np.float32))
-        b = EmbeddingCache(tmp_path, model="model-b", chunking_signature="sig")
+        b = cache(tmp_path, model="model-b")
         assert b.get_many(["текст"]) == {}
         assert a.get_many(["текст"]) != {}
         assert a.path != b.path
 
     def test_encoder_reuses_cache_and_encodes_only_new(self, tmp_path):
-        cache = EmbeddingCache(tmp_path, model="m", chunking_signature="sig")
-        first = RecordingEncoder(PARAMS, cache=cache)
+        shared = cache(tmp_path)
+        first = RecordingEncoder(PARAMS, cache=shared)
         first.encode_passages(["один", "два"])
         assert len(first.encoded) == 2
 
-        second = RecordingEncoder(PARAMS, cache=cache)
+        second = RecordingEncoder(PARAMS, cache=shared)
         second.encode_passages(["один", "два", "три"])
         # Заново кодируется только новый текст.
         assert second.encoded == ["passage: три"]
 
     def test_cached_vectors_keep_order(self, tmp_path):
-        cache = EmbeddingCache(tmp_path, model="m", chunking_signature="sig")
-        enc = RecordingEncoder(PARAMS, cache=cache)
-        enc.encode_passages(["ааа"])
-        out = RecordingEncoder(PARAMS, cache=cache).encode_passages(["бб", "ааа", "гггг"])
+        shared = cache(tmp_path)
+        RecordingEncoder(PARAMS, cache=shared).encode_passages(["ааа"])
+        out = RecordingEncoder(PARAMS, cache=shared).encode_passages(["бб", "ааа", "гггг"])
         # Длина текста заложена в фейковый вектор, поэтому порядок проверяем по ней.
         # Средний элемент пришёл из кэша, но встал на своё место.
         assert [float(v[0]) for v in out] == [

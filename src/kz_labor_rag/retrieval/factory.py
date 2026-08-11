@@ -40,6 +40,8 @@ def build_encoder(config: Config, *, use_cache: bool = True) -> Encoder:
             directory=config.get("embeddings.cache.dir"),
             model=params.model,
             chunking_signature=chunking_signature(build_chunking_params(config)),
+            passage_prefix=params.passage_prefix,
+            normalize=params.normalize,
         )
     return E5Encoder(params, cache=cache)
 

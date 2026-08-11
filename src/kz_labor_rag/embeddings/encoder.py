@@ -24,6 +24,11 @@ log = logging.getLogger(__name__)
 
 ENCODER_VERSION = "1.0"
 
+# 2 — в ключ кэша добавлены префикс документа и флаг нормализации. До этого
+# смена passage_prefix без смены модели молча возвращала векторы, посчитанные
+# со старым префиксом. Версия отделяет старые записи от новых.
+CACHE_KEY_VERSION = "2"
+
 
 @runtime_checkable
 class Encoder(Protocol):
@@ -66,15 +71,34 @@ class EncoderParams:
 class EmbeddingCache:
     """Кэш векторов на диске.
 
-    Ключ — sha256(модель + подпись чанкинга + текст). Смена чанкинга меняет
-    подпись и автоматически обесценивает старые векторы; смена модели пишет в
-    отдельный файл и не затирает уже посчитанное, поэтому вернуться к
-    предыдущей модели можно без переиндексации.
+    Ключ обязан покрывать всё, от чего зависит сохранённый вектор. Вектор
+    считается как ``encode(passage_prefix + text)`` с флагом нормализации,
+    поэтому в ключ входят: версия формата ключа, модель, префикс документа,
+    флаг нормализации, подпись чанкинга и сам текст.
+
+    Префикс и нормализация появились в ключе не сразу, и это была ошибка:
+    смена ``passage_prefix`` без смены модели возвращала бы векторы,
+    посчитанные со старым префиксом. Ошибка того же рода, что и молчаливое
+    усечение чанков, — результат правдоподобный, но неверный, и заметить его
+    по логам невозможно.
+
+    Смена модели пишет в отдельный файл и не затирает уже посчитанное, поэтому
+    вернуться к предыдущей модели можно без переиндексации.
     """
 
-    def __init__(self, directory: str | Path, model: str, chunking_signature: str) -> None:
+    def __init__(
+        self,
+        directory: str | Path,
+        model: str,
+        chunking_signature: str,
+        *,
+        passage_prefix: str,
+        normalize: bool,
+    ) -> None:
         self.model = model
         self.chunking_signature = chunking_signature
+        self.passage_prefix = passage_prefix
+        self.normalize = bool(normalize)
         slug = model.replace("/", "__")
         self.path = Path(directory) / f"{slug}.sqlite"
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,9 +108,21 @@ class EmbeddingCache:
         )
         self._db.commit()
 
+    @property
+    def fingerprint(self) -> str:
+        """Всё, что влияет на вектор, кроме самого текста."""
+        return "|".join(
+            [
+                CACHE_KEY_VERSION,
+                self.model,
+                self.passage_prefix,
+                str(self.normalize),
+                self.chunking_signature,
+            ]
+        )
+
     def key(self, text: str) -> str:
-        payload = f"{self.model}|{self.chunking_signature}|{text}"
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{self.fingerprint}|{text}".encode()).hexdigest()
 
     def get_many(self, texts: Sequence[str]) -> dict[int, np.ndarray]:
         if not texts:
@@ -182,9 +218,8 @@ class E5Encoder:
     def encode_passages(self, texts: Sequence[str]) -> np.ndarray:
         """Закодировать документы, переиспользуя кэш.
 
-        Кэш ключуется по тексту *без* префикса, но сам префикс входит в модель
-        кодирования; менять префикс без смены модели нельзя, поэтому такой
-        ключ безопасен.
+        В кэш кладётся вектор от текста *с* префиксом, и префикс входит в ключ,
+        поэтому смена префикса обесценивает записи, а не переиспользует их.
         """
         if not texts:
             return np.zeros((0, self.dimensions), dtype=np.float32)
