@@ -8,7 +8,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 
@@ -110,3 +113,99 @@ def config() -> Config:
             },
         }
     )
+
+
+# --- защита боевых ресурсов от фикстур --------------------------------------
+#
+# Тесты хранилища работают с той же базой, что и боевой индекс, — просто с
+# другими таблицами. Один раз это уже стоило метаданных: drop() сносил таблицу
+# index_meta, имя которой было общим на всю базу, и запись о том, чем построен
+# боевой индекс, исчезала. Чанки при этом оставались, поиск отвечал, а проверка
+# соответствия молчала не потому, что всё сошлось, а потому что сравнивать
+# стало не с чем.
+#
+# Аудит показал, что сейчас общих ресурсов больше нет. Но ровно это же было
+# верно и до того бага: ничто не мешало появиться следующему. Поэтому набор
+# фиксируется снимком до прогона и сверяется после.
+
+PRODUCTION_FILES = (
+    "evals/datasets/kz_labor_v1.jsonl",
+    "evals/datasets/REVIEW.md",
+    "config/default.yaml",
+    "src/kz_labor_rag/eval/prompts/REGISTRY.json",
+    "src/kz_labor_rag/eval/prompts/answer_ru.v1.txt",
+    "src/kz_labor_rag/eval/prompts/faithfulness_ru.v1.txt",
+)
+
+# Каталоги, в которые тест не имеет права ничего дописать.
+PRODUCTION_DIRS = (".cache/embeddings", "evals/results", "data/processed")
+
+# Таблица боевого индекса. Тесты обязаны работать с любой другой.
+PRODUCTION_TABLE = "chunks"
+
+
+def _file_state() -> dict[str, str | None]:
+    state: dict[str, str | None] = {}
+    for name in PRODUCTION_FILES:
+        path = Path(name)
+        state[name] = (
+            hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+        )
+    for name in PRODUCTION_DIRS:
+        directory = Path(name)
+        if not directory.is_dir():
+            state[f"{name}/*"] = ""
+            continue
+        # Размер и mtime, а не только имена: запись внутрь существующего
+        # sqlite-кэша эмбеддингов список файлов не меняет.
+        entries = [
+            f"{p.name}:{p.stat().st_size}:{p.stat().st_mtime_ns}"
+            for p in sorted(directory.iterdir())
+            if p.is_file()
+        ]
+        state[f"{name}/*"] = ",".join(entries)
+    return state
+
+
+def _db_state() -> dict[str, str | None]:
+    """Состояние боевых таблиц. Пустой словарь, если базы нет."""
+    dsn = os.environ.get("KZRAG_TEST_DSN", "postgresql://kzrag:kzrag@localhost:5432/kzrag")
+    try:
+        import psycopg
+
+        with psycopg.connect(dsn, connect_timeout=2) as conn:
+            rows = conn.execute(
+                "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename=%s",
+                (PRODUCTION_TABLE,),
+            ).fetchone()[0]
+            if not rows:
+                return {"chunks": "нет таблицы"}
+            count = conn.execute(f"SELECT count(*) FROM {PRODUCTION_TABLE}").fetchone()[0]
+            meta = conn.execute(
+                "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename=%s",
+                (f"{PRODUCTION_TABLE}_meta",),
+            ).fetchone()[0]
+            return {"chunks": str(count), "chunks_meta": "есть" if meta else "НЕТ"}
+    except Exception:  # noqa: BLE001 — базы может не быть, это не повод падать
+        return {}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def production_artifacts_untouched():
+    """Прогон тестов не должен менять ничего боевого."""
+    before = {**_file_state(), **_db_state()}
+    yield
+    after = {**_file_state(), **_db_state()}
+
+    changed = {
+        key: (before.get(key), after.get(key))
+        for key in set(before) | set(after)
+        if before.get(key) != after.get(key)
+    }
+    if changed:
+        details = "\n".join(f"  {k}: {was!r} -> {now!r}" for k, (was, now) in changed.items())
+        pytest.fail(
+            "Тесты изменили боевые артефакты — фикстура работает с общим ресурсом "
+            f"вместо изолированного:\n{details}",
+            pytrace=False,
+        )

@@ -41,9 +41,18 @@ def db_available() -> bool:
 pytestmark = pytest.mark.skipif(not db_available(), reason="нет базы: docker compose up -d db")
 
 
+TEST_TABLE = "chunks_test"
+
+
 @pytest.fixture
 def store():
-    s = PgVectorStore(StoreParams(dsn=DSN, table="chunks_test", distance="cosine", dimensions=DIM))
+    # Прямая страховка: фикстура сносит свои таблицы, поэтому промах в имени
+    # уничтожил бы боевой индекс.
+    from conftest import PRODUCTION_TABLE
+
+    assert TEST_TABLE != PRODUCTION_TABLE, "тест не имеет права работать с боевой таблицей"
+
+    s = PgVectorStore(StoreParams(dsn=DSN, table=TEST_TABLE, distance="cosine", dimensions=DIM))
     s.connect()
     s.drop()
     s.create_schema()
@@ -222,7 +231,7 @@ class TestSchemaGuards:
 
     def test_message_tells_how_to_fix(self, store):
         other = PgVectorStore(
-            StoreParams(dsn=DSN, table="chunks_test", distance="cosine", dimensions=999)
+            StoreParams(dsn=DSN, table=TEST_TABLE, distance="cosine", dimensions=999)
         )
         try:
             with pytest.raises(StoreError, match="--rebuild"):
