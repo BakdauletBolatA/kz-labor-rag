@@ -15,7 +15,7 @@ BASE = {
     "lang": "ru",
     "origin": "synthetic",
     "required_articles": [54],
-    "evidence_quote": "Не допускается расторжение",
+    "evidence": "Не допускается расторжение",
     "reviewed_by_human": True,
 }
 

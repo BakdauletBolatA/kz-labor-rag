@@ -29,10 +29,14 @@ class DatasetError(ValueError):
 class EvalQuestion:
     """Один размеченный вопрос.
 
-    ``evidence_quote`` — дословный фрагмент из корпуса, обосновывающий разметку.
+    ``evidence`` — дословный фрагмент из корпуса, обосновывающий разметку.
     Он существует не для метрик, а для ревью человеком: по цитате видно, из
     какой нормы взят эталон, не открывая кодекс. Валидатор проверяет, что
-    цитата действительно встречается в тексте обязательной статьи.
+    цитата действительно встречается в тексте обязательной статьи. Статья без
+    цитаты в датасет не принимается.
+
+    ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
+    откуда взята формулировка. У синтетических всегда ``None``.
     """
 
     id: str
@@ -40,9 +44,10 @@ class EvalQuestion:
     lang: Lang
     origin: Origin
     required_articles: tuple[int, ...]
-    evidence_quote: str
+    evidence: str
     acceptable_articles: tuple[int, ...] = ()
     preferred_clause: ClauseRef | None = None
+    source_url: str | None = None
     reviewed_by_human: bool = False
     notes: str = ""
     tags: tuple[str, ...] = ()
@@ -52,7 +57,7 @@ class EvalQuestion:
         def fail(msg: str) -> None:
             raise DatasetError(f"{source}: вопрос {raw.get('id', '<без id>')}: {msg}")
 
-        for key in ("id", "question", "lang", "origin", "required_articles", "evidence_quote"):
+        for key in ("id", "question", "lang", "origin", "required_articles", "evidence"):
             if not raw.get(key):
                 fail(f"обязательное поле '{key}' пусто или отсутствует")
 
@@ -85,34 +90,40 @@ class EvalQuestion:
             lang=raw["lang"],
             origin=raw["origin"],
             required_articles=required,
-            evidence_quote=str(raw["evidence_quote"]).strip(),
+            evidence=str(raw["evidence"]).strip(),
             acceptable_articles=acceptable,
             preferred_clause=preferred,
+            source_url=(raw.get("source_url") or None),
             reviewed_by_human=bool(raw.get("reviewed_by_human", False)),
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
         )
 
     def to_dict(self) -> dict:
+        """Порядок ключей фиксирован и одинаков для синтетических и реальных
+        вопросов: так диффы в git читаются глазами."""
         out: dict = {
             "id": self.id,
             "question": self.question,
-            "lang": self.lang,
             "origin": self.origin,
+            "source_url": self.source_url,
             "required_articles": list(self.required_articles),
             "acceptable_articles": list(self.acceptable_articles),
-            "evidence_quote": self.evidence_quote,
+            "preferred_clause": (
+                None
+                if self.preferred_clause is None
+                else {
+                    "article": self.preferred_clause.article,
+                    "clause": self.preferred_clause.clause,
+                }
+            ),
+            "tags": list(self.tags),
+            "lang": self.lang,
+            "evidence": self.evidence,
             "reviewed_by_human": self.reviewed_by_human,
         }
-        if self.preferred_clause is not None:
-            out["preferred_clause"] = {
-                "article": self.preferred_clause.article,
-                "clause": self.preferred_clause.clause,
-            }
         if self.notes:
             out["notes"] = self.notes
-        if self.tags:
-            out["tags"] = list(self.tags)
         return out
 
 
@@ -266,7 +277,7 @@ def validate_against_corpus(
                 report.missing_articles.append((q.id, article))
 
         haystacks = [normalized[a] for a in q.required_articles if a in normalized]
-        needle = squash(q.evidence_quote)
+        needle = squash(q.evidence)
         if needle and haystacks and not any(needle in h for h in haystacks):
             report.quote_not_found.append(q.id)
 

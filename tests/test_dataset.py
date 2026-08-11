@@ -23,7 +23,7 @@ VALID = {
     "origin": "synthetic",
     "required_articles": [54],
     "acceptable_articles": [52],
-    "evidence_quote": "Не допускается расторжение трудового договора по инициативе работодателя",
+    "evidence": "Не допускается расторжение трудового договора по инициативе работодателя",
     "preferred_clause": {"article": 54, "clause": "2"},
     "reviewed_by_human": True,
 }
@@ -41,7 +41,7 @@ class TestSchema:
         assert parsed.preferred_clause.clause == "2"
 
     @pytest.mark.parametrize(
-        "field", ["id", "question", "lang", "origin", "required_articles", "evidence_quote"]
+        "field", ["id", "question", "lang", "origin", "required_articles", "evidence"]
     )
     def test_missing_required_field_rejected(self, field):
         raw = {**VALID}
@@ -49,10 +49,10 @@ class TestSchema:
         with pytest.raises(DatasetError, match=field):
             EvalQuestion.from_dict(raw)
 
-    def test_evidence_quote_is_mandatory(self):
+    def test_evidence_is_mandatory(self):
         # Без цитаты разметку невозможно отревьюировать, не открывая кодекс.
-        raw = {k: v for k, v in VALID.items() if k != "evidence_quote"}
-        with pytest.raises(DatasetError, match="evidence_quote"):
+        raw = {k: v for k, v in VALID.items() if k != "evidence"}
+        with pytest.raises(DatasetError, match="evidence"):
             EvalQuestion.from_dict(raw)
 
     def test_article_cannot_be_required_and_acceptable(self):
@@ -171,7 +171,7 @@ class TestCorpusValidation:
         # Ровно та ошибка, ради которой цитата обязательна: статья существует,
         # но обоснование к ней придумано.
         report = validate_against_corpus(
-            EvalDataset(questions=(q(evidence_quote="работодатель вправе уволить кого угодно"),)),
+            EvalDataset(questions=(q(evidence="работодатель вправе уволить кого угодно"),)),
             self.CORPUS,
         )
         assert report.quote_not_found == ["q001"]
@@ -180,7 +180,7 @@ class TestCorpusValidation:
         report = validate_against_corpus(
             EvalDataset(
                 questions=(
-                    q(evidence_quote="НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора"),
+                    q(evidence="НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора"),
                 )
             ),
             self.CORPUS,

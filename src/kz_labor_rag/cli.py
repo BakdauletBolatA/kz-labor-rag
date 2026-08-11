@@ -12,10 +12,11 @@ import json
 import sys
 from pathlib import Path
 
+import logging
+
 from kz_labor_rag.config import Config, ConfigError, load_config
 from kz_labor_rag.eval.dataset import CompletenessRule, DatasetError, load_dataset
-from kz_labor_rag.eval.generator import AnthropicGenerator, DisabledGenerator
-from kz_labor_rag.eval.judge import AnthropicJudge, DisabledJudge
+from kz_labor_rag.eval.factory import build_generator, build_judge
 from kz_labor_rag.eval.prompts import PromptRegistryError
 from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
 from kz_labor_rag.types import Retriever
@@ -35,36 +36,6 @@ def build_retriever(config: Config) -> Retriever:
             "Сейчас доступна команда: kzrag-eval validate"
         )
     raise NotImplementedError(f"неизвестная реализация поиска: {backend!r}")
-
-
-def build_generator(config: Config):
-    if not config.get("generation.enabled"):
-        return DisabledGenerator()
-    provider = config.get("generation.provider")
-    if provider != "anthropic":
-        raise NotImplementedError(f"провайдер генерации '{provider}' не поддержан")
-    return AnthropicGenerator(
-        model=config.get("generation.model"),
-        prompt_id=config.get("generation.prompt_id"),
-        prompt_version=config.get("generation.prompt_version"),
-        max_tokens=int(config.get("generation.max_tokens")),
-        temperature=float(config.get("generation.temperature")),
-    )
-
-
-def build_judge(config: Config):
-    if not config.get("judge.enabled"):
-        return DisabledJudge()
-    provider = config.get("judge.provider")
-    if provider != "anthropic":
-        raise NotImplementedError(f"провайдер судьи '{provider}' не поддержан")
-    return AnthropicJudge(
-        model=config.get("judge.model"),
-        prompt_id=config.get("judge.prompt_id"),
-        prompt_version=config.get("judge.prompt_version"),
-        max_tokens=int(config.get("judge.max_tokens")),
-        temperature=float(config.get("judge.temperature")),
-    )
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -98,11 +69,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     dataset = load_dataset(args.dataset or config.get("eval.dataset"))
 
+    # Отсутствие ключа API отключает генерацию и судью с предупреждением
+    # в лог, но не мешает посчитать все метрики поиска.
+    generator = build_generator(config)
+    judge = build_judge(config, generator=generator)
+
     runner = EvalRunner(
         config=config,
         retriever=build_retriever(config),
-        generator=build_generator(config),
-        judge=build_judge(config),
+        generator=generator,
+        judge=judge,
     )
 
     try:
@@ -161,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     p_show.set_defaults(func=cmd_show)
 
     args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
         return args.func(args)
     except (ConfigError, DatasetError, PromptRegistryError, NotImplementedError) as exc:
