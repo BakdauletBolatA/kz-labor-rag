@@ -20,7 +20,15 @@ from typing import Protocol, runtime_checkable
 from kz_labor_rag.corpus.parser import Article, LaborCode
 from kz_labor_rag.types import Chunk
 
-CHUNKER_VERSION = "1.0"
+# 1.1 — окно чанка ужимается под предел модели: раньше чанк на 512 токенов
+# содержимого вместе с префиксом «passage: » и служебными токенами давал 516–517
+# при пределе 512, и хвост молча отбрасывался при кодировании. Версия входит в
+# подпись чанкинга, поэтому старый индекс и старый кэш эмбеддингов
+# обесцениваются автоматически.
+CHUNKER_VERSION = "1.1"
+
+# Сколько раз ужимать окно, прежде чем сдаться. На практике хватает одной-двух.
+MAX_BUDGET_ATTEMPTS = 5
 
 
 @runtime_checkable
@@ -33,6 +41,23 @@ class Tokenizer(Protocol):
     """
 
     def offsets(self, text: str) -> list[tuple[int, int]]: ...
+
+    def encoded_length(self, text: str) -> int:
+        """Сколько токенов получит модель, включая служебные."""
+
+
+@dataclass(frozen=True)
+class EncodingBudget:
+    """Предел модели и способ измерить, сколько токенов она реально получит.
+
+    ``measure`` обязан мерить текст ровно в том виде, в каком он уйдёт в
+    модель, — то есть вместе с префиксом ``passage: `` и служебными токенами.
+    Оценка «содержимое плюс длина префикса плюс два» здесь не годится: она
+    ошибается на токен, и ошибка проявляется молчаливым усечением.
+    """
+
+    measure: Callable[[str], int]
+    limit: int
 
 
 @dataclass(frozen=True)
@@ -131,24 +156,19 @@ def build_stream(articles: Iterable[Article], *, prepend_article_header: bool) -
     return CorpusStream(text="".join(parts), segments=tuple(segments))
 
 
-def chunk_fixed_tokens(
+def _cut(
     stream: CorpusStream,
-    tokenizer: Tokenizer,
-    params: ChunkingParams,
-    *,
-    id_prefix: str = "c",
+    offsets: list[tuple[int, int]],
+    content_budget: int,
+    overlap: int,
+    id_prefix: str,
 ) -> list[Chunk]:
-    """Нарезать поток окнами фиксированной длины, игнорируя структуру."""
-    params.validate()
-    offsets = tokenizer.offsets(stream.text)
-    if not offsets:
-        return []
-
-    step = params.chunk_size_tokens - params.chunk_overlap_tokens
+    """Разрезать поток окнами по ``content_budget`` токенов."""
+    step = content_budget - overlap
     chunks: list[Chunk] = []
 
     for index, start_token in enumerate(range(0, len(offsets), step)):
-        window = offsets[start_token : start_token + params.chunk_size_tokens]
+        window = offsets[start_token : start_token + content_budget]
         if not window:
             break
 
@@ -177,10 +197,58 @@ def chunk_fixed_tokens(
             )
         )
 
-        if start_token + params.chunk_size_tokens >= len(offsets):
+        if start_token + content_budget >= len(offsets):
             break
 
     return chunks
+
+
+def chunk_fixed_tokens(
+    stream: CorpusStream,
+    tokenizer: Tokenizer,
+    params: ChunkingParams,
+    budget: EncodingBudget | None = None,
+    *,
+    id_prefix: str = "c",
+) -> list[Chunk]:
+    """Нарезать поток окнами фиксированной длины, игнорируя структуру.
+
+    Стратегия нарезки не меняется: те же окна фиксированной длины по всему
+    потоку, структура документа по-прежнему игнорируется. Меняется только
+    величина окна — если задан ``budget``, содержимое ужимается ровно
+    настолько, чтобы вместе с префиксом и служебными токенами уложиться в
+    предел модели.
+
+    Почему подгонка итеративная, а не «вычесть длину префикса»: sentencepiece
+    склеивает префикс с началом текста иначе, чем токенизирует их по
+    отдельности, поэтому оверхед не постоянен — на реальном корпусе он гуляет
+    между 4 и 5 токенами. Вычитание константы оставило бы часть чанков за
+    пределом, а обнаружилось бы это опять молча.
+    """
+    params.validate()
+    offsets = tokenizer.offsets(stream.text)
+    if not offsets:
+        return []
+
+    content_budget = params.chunk_size_tokens
+    if budget is None:
+        return _cut(stream, offsets, content_budget, params.chunk_overlap_tokens, id_prefix)
+
+    for _ in range(MAX_BUDGET_ATTEMPTS):
+        chunks = _cut(stream, offsets, content_budget, params.chunk_overlap_tokens, id_prefix)
+        if not chunks:
+            return chunks
+        worst = max(budget.measure(c.text) for c in chunks)
+        if worst <= budget.limit:
+            return chunks
+        content_budget -= worst - budget.limit
+        if content_budget <= params.chunk_overlap_tokens:
+            break
+
+    raise ValueError(
+        f"не удалось подобрать размер окна под предел модели ({budget.limit} токенов) "
+        f"за {MAX_BUDGET_ATTEMPTS} попыток. Последний бюджет содержимого: {content_budget}."
+    )
 
 
 def chunk_by_article(
@@ -216,7 +284,12 @@ STRATEGIES: dict[str, str] = {
 }
 
 
-def build_chunks(code: LaborCode, tokenizer: Tokenizer, params: ChunkingParams) -> list[Chunk]:
+def build_chunks(
+    code: LaborCode,
+    tokenizer: Tokenizer,
+    params: ChunkingParams,
+    budget: EncodingBudget | None = None,
+) -> list[Chunk]:
     """Точка входа: нарезать кодекс согласно конфигу.
 
     Исключённые статьи в индекс не попадают: текста у них нет, а место в
@@ -226,7 +299,7 @@ def build_chunks(code: LaborCode, tokenizer: Tokenizer, params: ChunkingParams) 
 
     if params.strategy == "fixed_tokens":
         stream = build_stream(articles, prepend_article_header=params.prepend_article_header)
-        return chunk_fixed_tokens(stream, tokenizer, params)
+        return chunk_fixed_tokens(stream, tokenizer, params, budget)
     if params.strategy == "article":
         return chunk_by_article(articles, params)
 
@@ -260,6 +333,10 @@ class WhitespaceTokenizer:
             pos = start + len(word)
         return out
 
+    def encoded_length(self, text: str) -> int:
+        # Два служебных токена — как у моделей семейства BERT/XLM-R.
+        return len(self.offsets(text)) + 2
+
 
 class HFTokenizer:
     """Токенизатор модели эмбеддингов.
@@ -285,6 +362,14 @@ class HFTokenizer:
         )
         # Токенизатор может вернуть пустые интервалы для служебных токенов.
         return [(s, e) for s, e in encoded["offset_mapping"] if e > s]
+
+    def encoded_length(self, text: str) -> int:
+        """Ровно то число токенов, которое получит модель.
+
+        Считается на целом тексте, а не как сумма частей: sentencepiece
+        по-разному режет границу между префиксом и началом текста.
+        """
+        return len(self._tok(text, add_special_tokens=True, verbose=False)["input_ids"])
 
 
 def build_tokenizer(name: str, factory: Callable[[str], Tokenizer] | None = None) -> Tokenizer:

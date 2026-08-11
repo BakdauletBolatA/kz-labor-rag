@@ -11,6 +11,7 @@ import pytest
 
 from kz_labor_rag.corpus.chunker import (
     ChunkingParams,
+    EncodingBudget,
     WhitespaceTokenizer,
     build_chunks,
     build_stream,
@@ -191,3 +192,89 @@ class TestBuildChunks:
         code = LaborCode(articles=(article("54", [("1", "текст")]),))
         with pytest.raises(ValueError, match="неизвестная стратегия"):
             build_chunks(code, TOK, ChunkingParams("magic", 512, 0))
+
+
+class TestEncodingBudget:
+    """Окно ужимается под предел модели, стратегия нарезки не меняется.
+
+    Работает на токенизаторе по пробелам, поэтому проверка живёт и в CI,
+    где корпуса и весов модели нет.
+    """
+
+    def _stream(self, n: int = 60):
+        return build_stream([article("54", [("1", words(n, "w"))])], prepend_article_header=False)
+
+    def _budget(self, limit: int, prefix_tokens: int = 3):
+        # Имитируем реальное поведение: содержимое плюс префикс плюс два
+        # служебных токена.
+        return EncodingBudget(
+            measure=lambda text: len(text.split()) + prefix_tokens + 2, limit=limit
+        )
+
+    def test_without_budget_window_is_exactly_chunk_size(self):
+        chunks = chunk_fixed_tokens(self._stream(), TOK, PARAMS)
+        assert len(chunks[0].text.split()) == 10
+
+    def test_budget_shrinks_the_window(self):
+        # Предел 10, оверхед 5 -> содержимого может быть максимум 5.
+        chunks = chunk_fixed_tokens(self._stream(), TOK, PARAMS, self._budget(limit=10))
+        assert all(len(c.text.split()) <= 5 for c in chunks)
+
+    def test_no_chunk_exceeds_the_limit(self):
+        budget = self._budget(limit=10)
+        chunks = chunk_fixed_tokens(self._stream(), TOK, PARAMS, budget)
+        assert all(budget.measure(c.text) <= budget.limit for c in chunks)
+
+    def test_roomy_budget_leaves_window_untouched(self):
+        # Если предел не жмёт, нарезка обязана остаться прежней.
+        wide = chunk_fixed_tokens(self._stream(), TOK, PARAMS, self._budget(limit=1000))
+        plain = chunk_fixed_tokens(self._stream(), TOK, PARAMS)
+        assert [c.text for c in wide] == [c.text for c in plain]
+
+    def test_strategy_is_unchanged_only_window_size(self):
+        # Чанки по-прежнему режутся подряд по потоку и покрывают его целиком,
+        # без оглядки на структуру: меняется только длина окна.
+        budget = self._budget(limit=10)
+        chunks = chunk_fixed_tokens(self._stream(37), TOK, PARAMS, budget)
+        joined = " ".join(c.text for c in chunks).split()
+        assert joined == [f"w{i}" for i in range(37)]
+
+    def test_shrinking_produces_more_chunks(self):
+        plain = chunk_fixed_tokens(self._stream(), TOK, PARAMS)
+        shrunk = chunk_fixed_tokens(self._stream(), TOK, PARAMS, self._budget(limit=10))
+        assert len(shrunk) > len(plain)
+
+    def test_impossible_budget_is_fatal_not_silent(self):
+        # Оверхед больше предела — подогнать нечего. Молча отдавать
+        # переполненные чанки нельзя.
+        with pytest.raises(ValueError, match="не удалось подобрать размер окна"):
+            chunk_fixed_tokens(self._stream(), TOK, PARAMS, self._budget(limit=4))
+
+    def test_build_chunks_passes_budget_through(self):
+        code = LaborCode(articles=(article("54", [("1", words(60, "w"))]),))
+        budget = self._budget(limit=10)
+        chunks = build_chunks(code, TOK, PARAMS, budget)
+        assert chunks and all(budget.measure(c.text) <= budget.limit for c in chunks)
+
+    def test_whitespace_tokenizer_reports_encoded_length(self):
+        assert TOK.encoded_length("одно два три") == 5  # три слова плюс два служебных
+
+
+class TestChunkerVersionInSignature:
+    def test_version_bump_invalidates_old_chunks(self):
+        """Подпись чанкинга включает версию чанкера.
+
+        Иначе исправление нарезки не обесценило бы ни старый индекс, ни кэш
+        эмбеддингов, и поиск продолжил бы работать на векторах от прежних,
+        усечённых чанков.
+        """
+        import kz_labor_rag.corpus.chunker as ch
+
+        params = ChunkingParams("fixed_tokens", 512, 0)
+        before = chunking_signature(params)
+        original = ch.CHUNKER_VERSION
+        try:
+            ch.CHUNKER_VERSION = "9.9"
+            assert chunking_signature(params) != before
+        finally:
+            ch.CHUNKER_VERSION = original

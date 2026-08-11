@@ -14,7 +14,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kz_labor_rag.config import Config
-from kz_labor_rag.corpus.chunker import build_chunks, build_tokenizer, chunking_signature
+from kz_labor_rag.corpus.chunker import (
+    EncodingBudget,
+    build_chunks,
+    build_tokenizer,
+    chunking_signature,
+)
 from kz_labor_rag.corpus.parser import parse_file
 from kz_labor_rag.embeddings.encoder import Encoder
 from kz_labor_rag.retrieval.factory import build_chunking_params, build_encoder, build_store
@@ -41,39 +46,50 @@ class IndexReport:
             f"подпись чанкинга : {self.signature}",
             f"заняло, сек      : {self.seconds:.1f}",
         ]
+        lines.append(f"длина кодирования: максимум {self.max_encoded_tokens} токенов")
         if self.overflowing_chunks:
-            lines.append(
-                f"обрезано моделью : {self.overflowing_chunks} чанков "
-                f"(максимум {self.max_encoded_tokens} токенов)"
-            )
+            lines.append(f"ПЕРЕПОЛНЕНО     : {self.overflowing_chunks} чанков")
         return lines
 
 
-def count_overflow(
-    texts: list[str], tokenizer, prefix: str, max_sequence_length: int
-) -> tuple[int, int]:
-    """Сколько чанков не влезает в окно модели вместе с префиксом.
+class ChunkOverflowError(RuntimeError):
+    """Чанк не влезает в окно модели.
 
-    Ловушка, которую легко не заметить: ``chunk_size_tokens`` считает только
-    содержимое, а модель кодирует содержимое ПЛЮС префикс ``passage: `` и два
-    служебных токена. При ``chunk_size_tokens = 512`` и пределе модели 512
-    хвост каждого полного чанка молча отбрасывается при кодировании — без
-    исключения и без строки в логе.
-
-    Само по себе это часть наивности baseline, но знать об этом надо: «уложить
-    чанк в окно модели целиком» — готовая гипотеза для отдельной итерации.
+    Фатально, а не предупреждение. Модель усекает такой чанк молча: ни
+    исключения, ни строки в логе, просто часть текста не участвует в
+    эмбеддинге. Индекс, построенный на усечённых чанках, даёт правдоподобные
+    метрики, а следующие итерации начинают чинить усечение вместо того, чтобы
+    улучшать поиск, — разделить эти эффекты в таблице уже невозможно.
     """
-    # Два служебных токена: <s> и </s>.
-    special = 2
-    prefix_tokens = len(tokenizer.offsets(prefix))
-    longest = 0
-    overflowing = 0
-    for text in texts:
-        total = len(tokenizer.offsets(text)) + prefix_tokens + special
-        longest = max(longest, total)
-        if total > max_sequence_length:
-            overflowing += 1
-    return overflowing, longest
+
+
+def make_budget(config: Config, tokenizer) -> EncodingBudget:
+    """Бюджет кодирования: предел модели и способ измерить реальную длину.
+
+    Меряется текст целиком, вместе с префиксом: sentencepiece режет границу
+    между префиксом и началом текста иначе, чем каждую часть по отдельности,
+    поэтому «длина содержимого плюс длина префикса» — не та цифра.
+    """
+    prefix = config.get("embeddings.passage_prefix")
+    return EncodingBudget(
+        measure=lambda text: tokenizer.encoded_length(prefix + text),
+        limit=int(config.get("embeddings.max_sequence_length")),
+    )
+
+
+def assert_chunks_fit(chunks, budget: EncodingBudget) -> int:
+    """Убедиться, что ни один чанк не переполняет окно. Возвращает максимум."""
+    lengths = [(c.chunk_id, budget.measure(c.text)) for c in chunks]
+    offenders = [(cid, n) for cid, n in lengths if n > budget.limit]
+    if offenders:
+        raise ChunkOverflowError(
+            f"{len(offenders)} из {len(chunks)} чанков длиннее окна модели "
+            f"({budget.limit} токенов). Самый длинный: {max(n for _, n in offenders)}. "
+            f"Первые: {offenders[:3]}. "
+            "Индексация остановлена: молча усечённые чанки испортили бы все "
+            "последующие измерения."
+        )
+    return max((n for _, n in lengths), default=0)
 
 
 def index_mismatch(config: Config, store: PgVectorStore) -> str | None:
@@ -135,27 +151,14 @@ def build_index(
     code = parse_file(raw, strip_amendment_notes=config.get("corpus.strip_amendment_notes"))
 
     tokenizer = build_tokenizer(config.get("chunking.tokenizer"))
-    chunks = build_chunks(code, tokenizer, params)
+    budget = make_budget(config, tokenizer)
+    chunks = build_chunks(code, tokenizer, params, budget)
     log.info("Получено чанков: %d (стратегия %s)", len(chunks), params.strategy)
 
-    overflowing, longest = count_overflow(
-        [c.text for c in chunks],
-        tokenizer,
-        config.get("embeddings.passage_prefix"),
-        int(config.get("embeddings.max_sequence_length")),
-    )
-    if overflowing:
-        log.warning(
-            "%d из %d чанков не влезают в окно модели (%d токенов): длиннейший — %d "
-            "с учётом префикса '%s' и служебных токенов. Хвост таких чанков модель "
-            "молча отбросит. Это следствие того, что chunk_size_tokens считает только "
-            "содержимое. Уменьшение chunk_size_tokens — отдельная итерация.",
-            overflowing,
-            len(chunks),
-            int(config.get("embeddings.max_sequence_length")),
-            longest,
-            config.get("embeddings.passage_prefix"),
-        )
+    # Ужимание окна уже учло оверхед, но проверка остаётся: она защищает от
+    # случая, когда чанки пришли не из нашего чанкера или подгонка не сошлась.
+    longest = assert_chunks_fit(chunks, budget)
+    log.info("Максимальная длина кодирования: %d из %d токенов", longest, budget.limit)
 
     vectors = encoder.encode_passages([c.text for c in chunks])
     written = store.upsert(chunks, vectors)
@@ -172,8 +175,9 @@ def build_index(
             "corpus_edition_date": code.edition_date,
             "parser_version": code.parser_version,
             "chunks": written,
-            "chunks_truncated_by_model": overflowing,
+            "chunks_truncated_by_model": 0,
             "max_encoded_tokens": longest,
+            "model_window": budget.limit,
         }
     )
 
@@ -183,6 +187,6 @@ def build_index(
         edition_date=code.edition_date,
         signature=chunking_signature(params),
         seconds=time.perf_counter() - started,
-        overflowing_chunks=overflowing,
+        overflowing_chunks=0,
         max_encoded_tokens=longest,
     )
