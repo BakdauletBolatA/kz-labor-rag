@@ -237,3 +237,39 @@ class TestSchemaGuards:
     def test_absent_table_reports_none(self, store):
         store.drop()
         assert store.existing_dimensions() is None
+
+
+class TestMetaIsolation:
+    """Метаданные привязаны к своей таблице чанков.
+
+    Раньше таблица называлась ``index_meta`` и была одна на всю базу: фикстура
+    тестов с таблицей ``chunks_test`` сносила метаданные боевого индекса.
+    Чанки при этом оставались, и проверка соответствия молчала не потому, что
+    всё сошлось, а потому, что сравнивать стало не с чем.
+    """
+
+    def test_meta_table_name_follows_the_chunks_table(self):
+        assert (
+            StoreParams(dsn="x", table="chunks", distance="cosine", dimensions=8).meta_table
+            == "chunks_meta"
+        )
+
+    def test_dropping_one_store_keeps_the_others_meta(self, store):
+        other = PgVectorStore(
+            StoreParams(dsn=DSN, table="chunks_other", distance="cosine", dimensions=DIM)
+        )
+        try:
+            other.create_schema()
+            other.write_meta({"version": "боевой"})
+            store.write_meta({"version": "тестовый"})
+
+            store.drop()  # роняем «тестовое» хранилище
+
+            assert other.read_meta()["version"] == "боевой"
+        finally:
+            other.drop()
+            other.close()
+
+    def test_missing_meta_table_reads_as_none(self, store):
+        store.drop()
+        assert store.read_meta() is None

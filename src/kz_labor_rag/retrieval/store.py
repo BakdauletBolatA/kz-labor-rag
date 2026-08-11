@@ -1,7 +1,7 @@
 """Хранилище чанков и векторов в PostgreSQL + pgvector.
 
 Схема создаётся по конфигу: размерность вектора берётся из ``embeddings``,
-метрика расстояния — из ``vector_store``. В таблице ``index_meta`` пишется,
+метрика расстояния — из ``vector_store``. В таблице метаданных пишется,
 чем именно построен текущий индекс, чтобы поиск не выполнялся поверх векторов
 от другой модели или другого чанкинга — молчаливое несоответствие здесь
 испортило бы все метрики разом.
@@ -43,6 +43,18 @@ class StoreParams:
     distance: str
     dimensions: int
     index: str = "none"
+
+    @property
+    def meta_table(self) -> str:
+        """Таблица метаданных привязана к таблице чанков.
+
+        Раньше она называлась просто ``index_meta`` и была одна на всю базу.
+        Из-за этого фикстура тестов, работающая с таблицей ``chunks_test``,
+        сносила метаданные боевого индекса: чанки оставались, а запись о том,
+        чем они построены, исчезала. Проверка соответствия после этого молчала
+        не потому, что всё в порядке, а потому, что сравнивать было не с чем.
+        """
+        return f"{self.table}_meta"
 
     @property
     def operator(self) -> str:
@@ -153,8 +165,8 @@ class PgVectorStore:
             f"CREATE INDEX IF NOT EXISTS {table}_articles_idx ON {table} USING GIN (articles)"
         )
         conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS index_meta (
+            f"""
+            CREATE TABLE IF NOT EXISTS {self.params.meta_table} (
                 id             INTEGER PRIMARY KEY DEFAULT 1,
                 schema_version TEXT NOT NULL,
                 payload        JSONB NOT NULL,
@@ -167,7 +179,7 @@ class PgVectorStore:
     def drop(self) -> None:
         conn = self.connect()
         conn.execute(f"DROP TABLE IF EXISTS {self.params.table}")
-        conn.execute("DROP TABLE IF EXISTS index_meta")
+        conn.execute(f"DROP TABLE IF EXISTS {self.params.meta_table}")
 
     # --- запись -----------------------------------------------------------
 
@@ -220,8 +232,8 @@ class PgVectorStore:
     def write_meta(self, payload: dict[str, Any]) -> None:
         conn = self.connect()
         conn.execute(
-            """
-            INSERT INTO index_meta (id, schema_version, payload, built_at)
+            f"""
+            INSERT INTO {self.params.meta_table} (id, schema_version, payload, built_at)
             VALUES (1, %s, %s, now())
             ON CONFLICT (id) DO UPDATE SET
                 schema_version = EXCLUDED.schema_version,
@@ -233,7 +245,12 @@ class PgVectorStore:
 
     def read_meta(self) -> dict[str, Any] | None:
         conn = self.connect()
-        row = conn.execute("SELECT payload, built_at FROM index_meta WHERE id = 1").fetchone()
+        try:
+            row = conn.execute(
+                f"SELECT payload, built_at FROM {self.params.meta_table} WHERE id = 1"
+            ).fetchone()
+        except Exception:  # noqa: BLE001 — таблицы метаданных может не быть вовсе
+            return None
         if row is None:
             return None
         payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
