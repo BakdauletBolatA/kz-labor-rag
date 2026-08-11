@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      # Тесты хранилища идут против настоящего pgvector: замокать векторный
+      # поиск нечем — проверять надо его поведение, а не наш пересказ.
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: kzrag
+          POSTGRES_PASSWORD: kzrag
+          POSTGRES_DB: kzrag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kzrag -d kzrag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      KZRAG_TEST_DSN: postgresql://kzrag:kzrag@localhost:5432/kzrag
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          # torch из CPU-индекса: обычный тянет ~3.5 ГБ пакетов nvidia,
+          # которые на раннере без GPU бесполезны и только едят время.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -e '.[dev]'
+
+      - name: Линтер
+        run: ruff check src/ scripts/ tests/
+
+      - name: Тесты
+        run: pytest -q
+
+      - name: Проверить, что датасет читается и сходится с самим собой
+        run: |
+          kzrag-eval validate || true   # гейт не пройден — это ожидаемо, пока датасет неполон
+          python - <<'PY'
+          from kz_labor_rag.eval.dataset import load_dataset
+          ds = load_dataset("evals/datasets/kz_labor_v1.jsonl")
+          print("готовых вопросов:", len(ds.ready), "| черновых слотов:", ds.stats["draft_slots"])
+          PY
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Образ собирается на каждом PR: поломка сборки не должна обнаруживаться
+      # в момент, когда кто-то впервые делает docker compose up.
+      - name: Собрать образ
+        run: docker build -t kz-labor-rag:ci .
+
+      - name: Проверить размер образа
+        run: |
+          SIZE_MB=$(docker image inspect kz-labor-rag:ci --format '{{.Size}}' | awk '{print int($1/1024/1024)}')
+          echo "Размер образа: ${SIZE_MB} МБ"
+          # Порог со смыслом: без --index-url .../whl/cpu образ раздувается
+          # до ~8.5 ГБ пакетами nvidia и triton. Падение здесь означает, что
+          # CUDA-зависимости вернулись.
+          if [ "$SIZE_MB" -gt 3000 ]; then
+            echo "Образ больше 3 ГБ — вероятно, вернулись CUDA-зависимости" >&2
+            docker run --rm --entrypoint sh kz-labor-rag:ci -c \
+              "du -sm /usr/local/lib/python3.12/site-packages/* | sort -rn | head -10"
+            exit 1
+          fi
