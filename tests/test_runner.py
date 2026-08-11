@@ -14,7 +14,7 @@ BASE = {
     "question": "Может ли работодатель уволить работника в отпуске?",
     "lang": "ru",
     "origin": "synthetic",
-    "required_articles": [54],
+    "required_articles": ["54"],
     "evidence": "Не допускается расторжение",
     "reviewed_by_human": True,
 }
@@ -61,7 +61,7 @@ class TestCompletenessGate:
 class TestAggregates:
     def test_perfect_retrieval(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(54, 1, 2) for x in ds}
+        responses = {x.question: ranked("54", "1", "2") for x in ds}
         runner = EvalRunner(config, FakeRetriever(responses))
         result = runner.run(ds)
 
@@ -73,7 +73,7 @@ class TestAggregates:
 
     def test_total_miss(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(1, 2, 3) for x in ds}
+        responses = {x.question: ranked("1", "2", "3") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         primary = result["aggregates"]["primary"]
@@ -84,7 +84,7 @@ class TestAggregates:
 
     def test_languages_are_reported_separately(self, config):
         ds = complete_dataset()
-        responses = {x.question: (ranked(54) if x.lang == "ru" else ranked(1)) for x in ds}
+        responses = {x.question: (ranked("54") if x.lang == "ru" else ranked("1")) for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         by_lang = result["aggregates"]["by_language"]
@@ -95,7 +95,7 @@ class TestAggregates:
 
     def test_real_and_synthetic_reported_separately(self, config):
         ds = complete_dataset()
-        responses = {x.question: (ranked(54) if x.origin == "real" else ranked(1)) for x in ds}
+        responses = {x.question: (ranked("54") if x.origin == "real" else ranked("1")) for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         by_origin = result["aggregates"]["by_origin"]
@@ -106,7 +106,7 @@ class TestAggregates:
         # Без генератора и судьи faithfulness не измерялась. Ноль здесь означал
         # бы «ответ не обоснован» и портил бы таблицу.
         ds = complete_dataset()
-        responses = {x.question: ranked(54) for x in ds}
+        responses = {x.question: ranked("54") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         primary = result["aggregates"]["primary"]
@@ -117,7 +117,7 @@ class TestAggregates:
 class TestGenerationAndJudge:
     def test_faithfulness_and_citations_recorded(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(54, 1) for x in ds}
+        responses = {x.question: ranked("54", "1") for x in ds}
         runner = EvalRunner(
             config,
             FakeRetriever(responses),
@@ -133,7 +133,7 @@ class TestGenerationAndJudge:
 
     def test_hallucinated_citation_lowers_validity(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(54) for x in ds}
+        responses = {x.question: ranked("54") for x in ds}
         runner = EvalRunner(
             config,
             FakeRetriever(responses),
@@ -150,7 +150,7 @@ class TestGenerationAndJudge:
 class TestResultShape:
     def test_result_is_self_describing(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(54) for x in ds}
+        responses = {x.question: ranked("54") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         # По этому JSON строка EVALUATION.md должна восстанавливаться целиком.
@@ -176,7 +176,7 @@ class TestResultShape:
 
     def test_per_question_retrieval_is_debuggable(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked(1, 2, 54) for x in ds}
+        responses = {x.question: ranked("1", "2", "54") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         first = result["questions"][0]["retrieved"][0]
@@ -186,7 +186,7 @@ class TestResultShape:
 
     def test_saved_file_names_carry_time_and_version(self, config, tmp_path):
         ds = complete_dataset()
-        result = EvalRunner(config, FakeRetriever({x.question: ranked(54) for x in ds})).run(ds)
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
         path = save_result(result, tmp_path)
 
         assert path.name.endswith("__test-v0.json")
@@ -194,7 +194,7 @@ class TestResultShape:
 
     def test_existing_result_is_never_overwritten(self, config, tmp_path):
         ds = complete_dataset()
-        result = EvalRunner(config, FakeRetriever({x.question: ranked(54) for x in ds})).run(ds)
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
         save_result(result, tmp_path)
         with pytest.raises(FileExistsError):
             save_result(result, tmp_path)

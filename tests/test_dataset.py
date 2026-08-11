@@ -21,10 +21,10 @@ VALID = {
     "question": "Может ли работодатель уволить работника, находящегося в отпуске?",
     "lang": "ru",
     "origin": "synthetic",
-    "required_articles": [54],
-    "acceptable_articles": [52],
+    "required_articles": ["54"],
+    "acceptable_articles": ["52"],
     "evidence": "Не допускается расторжение трудового договора по инициативе работодателя",
-    "preferred_clause": {"article": 54, "clause": "2"},
+    "preferred_clause": {"article": "54", "clause": "2"},
     "reviewed_by_human": True,
 }
 
@@ -36,7 +36,7 @@ def q(**overrides) -> EvalQuestion:
 class TestSchema:
     def test_valid_question_parses(self):
         parsed = q()
-        assert parsed.required_articles == (54,)
+        assert parsed.required_articles == ("54",)
         assert parsed.preferred_clause is not None
         assert parsed.preferred_clause.clause == "2"
 
@@ -57,11 +57,11 @@ class TestSchema:
 
     def test_article_cannot_be_required_and_acceptable(self):
         with pytest.raises(DatasetError, match="однозначным"):
-            q(required_articles=[54], acceptable_articles=[54])
+            q(required_articles=["54"], acceptable_articles=["54"])
 
     def test_preferred_clause_must_point_into_required(self):
         with pytest.raises(DatasetError, match="preferred_clause"):
-            q(preferred_clause={"article": 52, "clause": "1"})
+            q(preferred_clause={"article": "52", "clause": "1"})
 
     def test_unknown_lang_rejected(self):
         with pytest.raises(DatasetError, match="lang"):
@@ -151,9 +151,9 @@ class TestCompletenessGate:
 
 class TestCorpusValidation:
     CORPUS = {
-        54: "Статья 54. Не допускается расторжение трудового договора по инициативе "
+        "54": "Статья 54. Не допускается расторжение трудового договора по инициативе "
         "работодателя в период временной нетрудоспособности. 2. Положения настоящего пункта...",
-        52: "Статья 52. Основания расторжения трудового договора.",
+        "52": "Статья 52. Основания расторжения трудового договора.",
     }
 
     def test_clean_dataset_passes(self):
@@ -162,10 +162,10 @@ class TestCorpusValidation:
 
     def test_nonexistent_article_caught(self):
         report = validate_against_corpus(
-            EvalDataset(questions=(q(required_articles=[999], preferred_clause=None),)),
+            EvalDataset(questions=(q(required_articles=["999"], preferred_clause=None),)),
             self.CORPUS,
         )
-        assert report.missing_articles == [("q001", 999)]
+        assert report.missing_articles == [("q001", "999")]
 
     def test_fabricated_quote_caught(self):
         # Ровно та ошибка, ради которой цитата обязательна: статья существует,

@@ -18,7 +18,7 @@ from kz_labor_rag.eval.judge import Judgement
 from kz_labor_rag.types import Chunk, RetrievedChunk
 
 
-def make_chunk(article: int, clauses: tuple[str, ...] = (), text: str = "", cid: str = "") -> Chunk:
+def make_chunk(article: str, clauses: tuple[str, ...] = (), text: str = "", cid: str = "") -> Chunk:
     return Chunk(
         chunk_id=cid or f"a{article}-{'_'.join(clauses) or '0'}",
         text=text or f"Текст статьи {article}.",
@@ -28,7 +28,7 @@ def make_chunk(article: int, clauses: tuple[str, ...] = (), text: str = "", cid:
     )
 
 
-def ranked(*articles: int) -> list[RetrievedChunk]:
+def ranked(*articles: str) -> list[RetrievedChunk]:
     """Выдача из чанков по одной статье на чанк, скор убывает вместе с рангом."""
     return [
         RetrievedChunk(chunk=make_chunk(a), score=1.0 - i * 0.1, rank=i + 1)

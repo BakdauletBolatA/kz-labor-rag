@@ -22,6 +22,7 @@ dev = [
 
 [project.scripts]
 kzrag-eval = "kz_labor_rag.cli:main"
+kzrag-corpus = "kz_labor_rag.corpus.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -14,22 +14,26 @@ from typing import Protocol, Sequence, runtime_checkable
 
 from kz_labor_rag.eval.judge import format_context
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
-from kz_labor_rag.types import RetrievedChunk
+from kz_labor_rag.types import RetrievedChunk, normalize_article
 
 # Ссылки вида «ст. 52», «статья 52», «(ст. 52 п. 1)».
-_ARTICLE_CITATION = re.compile(r"\b(?:ст\.?|стать[ияеёю]м?и?)\s*(\d{1,3})", re.IGNORECASE)
+_ARTICLE_CITATION = re.compile(
+    # Составные номера («ст. 73-1») обязаны ловиться целиком: иначе
+    # citation_validity примет ссылку на 73-1 за ссылку на 73.
+    r"\b(?:ст\.?|стать[ияеёю]м?и?)\s*(\d{1,3}(?:-\d{1,2})?)", re.IGNORECASE
+)
 
 
-def extract_cited_articles(answer: str) -> list[int]:
+def extract_cited_articles(answer: str) -> list[str]:
     """Вытащить номера статей, на которые сослался генератор.
 
     Нужно для ``citation_validity`` — детерминированной проверки без LLM.
     Порядок сохраняется, дубли убираются.
     """
-    seen: set[int] = set()
-    out: list[int] = []
+    seen: set[str] = set()
+    out: list[str] = []
     for match in _ARTICLE_CITATION.finditer(answer):
-        num = int(match.group(1))
+        num = normalize_article(match.group(1))
         if num not in seen:
             seen.add(num)
             out.append(num)
@@ -45,7 +49,7 @@ class Generation:
     """Сгенерированный ответ плюс всё, что нужно для воспроизведения строки."""
 
     answer: str
-    cited_articles: tuple[int, ...] = ()
+    cited_articles: tuple[str, ...] = ()
     backend: str = ""
     model: str = ""
     prompt_label: str = ""

@@ -15,7 +15,7 @@ from kz_labor_rag.types import ClauseRef, RetrievedChunk
 METRICS_VERSION = "1.0"
 
 
-def rank_articles(chunks: Sequence[RetrievedChunk]) -> list[int]:
+def rank_articles(chunks: Sequence[RetrievedChunk]) -> list[str]:
     """Свернуть ранжированный список чанков в ранжированный список статей.
 
     Поиск возвращает чанки, а эталон размечен статьями. Одна статья обычно
@@ -23,8 +23,8 @@ def rank_articles(chunks: Sequence[RetrievedChunk]) -> list[int]:
     чанка, а её повторы выбрасываются. Порядок чанков считается уже
     отсортированным по убыванию релевантности.
     """
-    seen: set[int] = set()
-    ranked: list[int] = []
+    seen: set[str] = set()
+    ranked: list[str] = []
     for chunk in chunks:
         if chunk.article not in seen:
             seen.add(chunk.article)
@@ -32,7 +32,7 @@ def rank_articles(chunks: Sequence[RetrievedChunk]) -> list[int]:
     return ranked
 
 
-def recall_at_k(required: Iterable[int], ranked_articles: Sequence[int], k: int) -> float:
+def recall_at_k(required: Iterable[str], ranked_articles: Sequence[str], k: int) -> float:
     """Доля обязательных статей, попавших в топ-k статей.
 
     Знаменатель — число обязательных статей, а не k. Вопрос с двумя
@@ -45,7 +45,7 @@ def recall_at_k(required: Iterable[int], ranked_articles: Sequence[int], k: int)
     return len(found) / len(required_set)
 
 
-def strict_hit_at_k(required: Iterable[int], ranked_articles: Sequence[int], k: int) -> float:
+def strict_hit_at_k(required: Iterable[str], ranked_articles: Sequence[str], k: int) -> float:
     """1.0, если в топ-k попали *все* обязательные статьи, иначе 0.0.
 
     Жёсткая версия recall@k. Нужна отдельно, потому что средний recall@5 умеет
@@ -58,7 +58,7 @@ def strict_hit_at_k(required: Iterable[int], ranked_articles: Sequence[int], k: 
     return 1.0 if required_set <= set(ranked_articles[:k]) else 0.0
 
 
-def reciprocal_rank(required: Iterable[int], ranked_articles: Sequence[int]) -> float:
+def reciprocal_rank(required: Iterable[str], ranked_articles: Sequence[str]) -> float:
     """Обратный ранг первой обязательной статьи в выдаче.
 
     Ранги считаются с единицы. Если ни одна обязательная статья не найдена во
@@ -105,7 +105,7 @@ def clause_hit_at_k(preferred: ClauseRef, chunks: Sequence[RetrievedChunk], k: i
     return 1.0 if any(chunk.covers(preferred) for chunk in chunks[:k]) else 0.0
 
 
-def citation_validity(cited: Iterable[int], chunks: Sequence[RetrievedChunk]) -> float:
+def citation_validity(cited: Iterable[str], chunks: Sequence[RetrievedChunk]) -> float:
     """Доля статей, процитированных генератором, которые есть в выданном контексте.
 
     Детерминированная проверка без LLM: ловит самый грубый вид галлюцинации —
@@ -135,8 +135,8 @@ class QuestionMetrics:
     faithfulness: float | None
     clause_precision_at_k: float | None
     clause_hit_at_k: float | None
-    retrieved_articles: list[int]
-    required_articles: list[int]
+    retrieved_articles: list[str]
+    required_articles: list[str]
 
     @property
     def is_retrieval_failure(self) -> bool:

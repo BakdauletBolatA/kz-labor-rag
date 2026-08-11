@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, Literal
 
-from kz_labor_rag.types import ClauseRef, normalize_clause
+from kz_labor_rag.types import ClauseRef, article_sort_key, normalize_article, normalize_clause
 
 Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
@@ -43,9 +43,9 @@ class EvalQuestion:
     question: str
     lang: Lang
     origin: Origin
-    required_articles: tuple[int, ...]
+    required_articles: tuple[str, ...]
     evidence: str
-    acceptable_articles: tuple[int, ...] = ()
+    acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
     reviewed_by_human: bool = False
@@ -66,18 +66,22 @@ class EvalQuestion:
         if raw["origin"] not in ("real", "synthetic"):
             fail(f"origin='{raw['origin']}', допустимы только 'real' и 'synthetic'")
 
-        required = tuple(int(a) for a in raw["required_articles"])
-        acceptable = tuple(int(a) for a in raw.get("acceptable_articles") or ())
+        # Номер статьи — строка: в кодексе есть статьи с составными номерами
+        # («73-1», «126-1»). Числа в JSON принимаются и приводятся к строке,
+        # чтобы разметка не ломалась из-за того, что кто-то написал 54, а не "54".
+        required = tuple(normalize_article(a) for a in raw["required_articles"])
+        acceptable = tuple(normalize_article(a) for a in raw.get("acceptable_articles") or ())
         overlap = set(required) & set(acceptable)
         if overlap:
             fail(
-                f"статьи {sorted(overlap)} перечислены и в required, и в acceptable — "
+                f"статьи {sorted(overlap, key=article_sort_key)} перечислены "
+                "и в required, и в acceptable — "
                 "эталон должен быть однозначным"
             )
 
         preferred = None
         if pc := raw.get("preferred_clause"):
-            preferred = ClauseRef(article=int(pc["article"]), clause=str(pc["clause"]))
+            preferred = ClauseRef(article=normalize_article(pc["article"]), clause=str(pc["clause"]))
             if preferred.article not in required:
                 fail(
                     f"preferred_clause указывает на статью {preferred.article}, "
@@ -242,7 +246,7 @@ def save_dataset(dataset: EvalDataset, path: str | Path) -> None:
 class CorpusValidationReport:
     """Результат сверки эталона с распарсенным корпусом."""
 
-    missing_articles: list[tuple[str, int]] = field(default_factory=list)
+    missing_articles: list[tuple[str, str]] = field(default_factory=list)
     quote_not_found: list[str] = field(default_factory=list)
     missing_clauses: list[tuple[str, str]] = field(default_factory=list)
 
@@ -252,7 +256,7 @@ class CorpusValidationReport:
 
 
 def validate_against_corpus(
-    dataset: EvalDataset, article_texts: dict[int, str]
+    dataset: EvalDataset, article_texts: dict[str, str]
 ) -> CorpusValidationReport:
     """Проверить, что разметка вообще соответствует тексту кодекса.
 
