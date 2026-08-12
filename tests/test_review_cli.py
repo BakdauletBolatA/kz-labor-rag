@@ -19,7 +19,7 @@ BASE = {
     "lang": "ru",
     "origin": "synthetic",
     "required_articles": ["54"],
-    "evidence": "Не допускается расторжение трудового договора",
+    "evidence": [{"article": "54", "quote": "Не допускается расторжение трудового договора"}],
 }
 
 

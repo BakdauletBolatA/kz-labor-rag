@@ -25,7 +25,12 @@ VALID = {
     "origin": "synthetic",
     "required_articles": ["54"],
     "acceptable_articles": ["52"],
-    "evidence": "Не допускается расторжение трудового договора по инициативе работодателя",
+    "evidence": [
+        {
+            "article": "54",
+            "quote": "Не допускается расторжение трудового договора по инициативе работодателя",
+        }
+    ],
     "preferred_clause": {"article": "54", "clause": "2"},
     "reviewed_by_human": True,
 }
@@ -221,7 +226,15 @@ class TestCorpusValidation:
 
     def test_nonexistent_article_caught(self):
         report = validate_against_corpus(
-            EvalDataset(questions=(q(required_articles=["999"], preferred_clause=None),)),
+            EvalDataset(
+                questions=(
+                    q(
+                        required_articles=["999"],
+                        preferred_clause=None,
+                        evidence=[{"article": "999", "quote": "текст несуществующей статьи"}],
+                    ),
+                )
+            ),
             self.CORPUS,
         )
         assert report.missing_articles == [("q001", "999")]
@@ -230,15 +243,32 @@ class TestCorpusValidation:
         # Ровно та ошибка, ради которой цитата обязательна: статья существует,
         # но обоснование к ней придумано.
         report = validate_against_corpus(
-            EvalDataset(questions=(q(evidence="работодатель вправе уволить кого угодно"),)),
+            EvalDataset(
+                questions=(
+                    q(
+                        evidence=[
+                            {"article": "54", "quote": "работодатель вправе уволить кого угодно"}
+                        ]
+                    ),
+                )
+            ),
             self.CORPUS,
         )
-        assert report.quote_not_found == ["q001"]
+        assert report.quote_not_found == ["q001 (цитата к ст. 54)"]
 
     def test_quote_matching_ignores_whitespace_and_case(self):
         report = validate_against_corpus(
             EvalDataset(
-                questions=(q(evidence="НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора"),)
+                questions=(
+                    q(
+                        evidence=[
+                            {
+                                "article": "54",
+                                "quote": "НЕ ДОПУСКАЕТСЯ   расторжение\nтрудового договора",
+                            }
+                        ]
+                    ),
+                )
             ),
             self.CORPUS,
         )
@@ -256,7 +286,9 @@ class TestClauseValidation:
 
     def test_existing_clause_passes(self):
         report = validate_against_corpus(
-            EvalDataset(questions=(q(evidence="Не допускается расторжение"),)),
+            EvalDataset(
+                questions=(q(evidence=[{"article": "54", "quote": "Не допускается расторжение"}]),)
+            ),
             self.CORPUS,
             {"54": ("1", "2")},
         )
@@ -268,7 +300,7 @@ class TestClauseValidation:
                 questions=(
                     q(
                         preferred_clause={"article": "54", "clause": "9"},
-                        evidence="Не допускается расторжение",
+                        evidence=[{"article": "54", "quote": "Не допускается расторжение"}],
                     ),
                 )
             ),
@@ -284,7 +316,7 @@ class TestClauseValidation:
                 questions=(
                     q(
                         preferred_clause={"article": "54", "clause": "9"},
-                        evidence="Не допускается расторжение",
+                        evidence=[{"article": "54", "quote": "Не допускается расторжение"}],
                     ),
                 )
             ),
@@ -342,7 +374,7 @@ class TestShippedDataset:
         assert len(multi) >= 5, f"многосоставных вопросов всего {len(multi)}"
 
     def test_every_question_has_evidence(self, dataset):
-        assert all(len(x.evidence) > 40 for x in dataset.ready)
+        assert all(x.evidence and all(len(e.quote) > 40 for e in x.evidence) for x in dataset.ready)
 
     def test_questions_avoid_code_language(self, dataset):
         # Вопрос, написанный терминами статьи, retrieval находит тривиально,

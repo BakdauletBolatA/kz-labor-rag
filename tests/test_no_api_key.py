@@ -62,7 +62,7 @@ def question(qid: str, text: str) -> EvalQuestion:
             "lang": "ru",
             "origin": "synthetic",
             "required_articles": ["54"],
-            "evidence": "Не допускается расторжение",
+            "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
             "reviewed_by_human": True,
         }
     )

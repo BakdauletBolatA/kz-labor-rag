@@ -20,7 +20,7 @@ Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
 Status = Literal["ready", "draft"]
 
-DATASET_SCHEMA_VERSION = "1.1"
+DATASET_SCHEMA_VERSION = "2.0"
 
 
 class DatasetError(ValueError):
@@ -28,14 +28,30 @@ class DatasetError(ValueError):
 
 
 @dataclass(frozen=True)
+class EvidenceQuote:
+    """Дословная цитата из конкретной статьи, обосновывающая разметку."""
+
+    article: str
+    quote: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "article", normalize_article(self.article))
+        object.__setattr__(self, "quote", self.quote.strip())
+
+
+@dataclass(frozen=True)
 class EvalQuestion:
     """Один размеченный вопрос.
 
-    ``evidence`` — дословный фрагмент из корпуса, обосновывающий разметку.
-    Он существует не для метрик, а для ревью человеком: по цитате видно, из
-    какой нормы взят эталон, не открывая кодекс. Валидатор проверяет, что
-    цитата действительно встречается в тексте обязательной статьи. Статья без
-    цитаты в датасет не принимается.
+    ``evidence`` — список дословных цитат, по одной на каждую обязательную
+    статью. Существует не для метрик, а для ревью человеком: по цитатам видно,
+    из каких норм взят эталон, не открывая кодекс.
+
+    Список, а не одна строка, потому что вопрос законно может опираться на
+    несколько статей: «сколько дней декрета и сохранят ли должность» — это
+    ст. 99 и ст. 100, и одна цитата вторую половину ответа не доказывает.
+    Одна цитата на многосоставный вопрос молча скрывала неполноту разметки,
+    поэтому схема требует цитату к КАЖДОЙ обязательной статье.
 
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
@@ -52,7 +68,7 @@ class EvalQuestion:
     lang: Lang
     origin: Origin
     required_articles: tuple[str, ...]
-    evidence: str
+    evidence: tuple[EvidenceQuote, ...]
     acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
@@ -102,6 +118,24 @@ class EvalQuestion:
                 "эталон должен быть однозначным"
             )
 
+        evidence = tuple(
+            EvidenceQuote(article=e["article"], quote=e["quote"])
+            for e in (raw.get("evidence") or ())
+        )
+        if status == "ready":
+            covered = {e.article for e in evidence}
+            if missing := [a for a in required if a not in covered]:
+                fail(
+                    f"нет цитаты к обязательным статьям {sorted(missing, key=article_sort_key)}. "
+                    "Каждая обязательная статья должна быть обоснована своей цитатой, "
+                    "иначе неполнота разметки не видна при ревью"
+                )
+            if stray := [a for a in covered if a not in required]:
+                fail(
+                    f"цитаты взяты из статей {sorted(stray, key=article_sort_key)}, "
+                    "которых нет в required_articles"
+                )
+
         preferred = None
         if pc := raw.get("preferred_clause"):
             preferred = ClauseRef(
@@ -119,7 +153,7 @@ class EvalQuestion:
             lang=raw["lang"],
             origin=raw["origin"],
             required_articles=required,
-            evidence=str(raw.get("evidence") or "").strip(),
+            evidence=evidence,
             acceptable_articles=acceptable,
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
@@ -149,7 +183,7 @@ class EvalQuestion:
             ),
             "tags": list(self.tags),
             "lang": self.lang,
-            "evidence": self.evidence,
+            "evidence": [{"article": e.article, "quote": e.quote} for e in self.evidence],
             "status": self.status,
             "reviewed_by_human": self.reviewed_by_human,
         }
@@ -279,6 +313,8 @@ class CorpusValidationReport:
     """Результат сверки эталона с распарсенным корпусом."""
 
     missing_articles: list[tuple[str, str]] = field(default_factory=list)
+    # Элемент вида «syn_020 (цитата к ст. 85)»: важно, какая именно цитата
+    # не нашлась, а не только в каком вопросе.
     quote_not_found: list[str] = field(default_factory=list)
     missing_clauses: list[tuple[str, str]] = field(default_factory=list)
 
@@ -314,10 +350,14 @@ def validate_against_corpus(
             if article not in normalized:
                 report.missing_articles.append((q.id, article))
 
-        haystacks = [normalized[a] for a in q.required_articles if a in normalized]
-        needle = squash(q.evidence)
-        if needle and haystacks and not any(needle in h for h in haystacks):
-            report.quote_not_found.append(q.id)
+        # Каждая цитата проверяется против СВОЕЙ статьи, а не против всех
+        # обязательных сразу: иначе цитата из ст. 99 «доказывала» бы и разметку
+        # ст. 100, и неполнота обоснования снова стала бы невидимой.
+        for quote in q.evidence:
+            haystack = normalized.get(quote.article)
+            needle = squash(quote.quote)
+            if haystack is not None and needle and needle not in haystack:
+                report.quote_not_found.append(f"{q.id} (цитата к ст. {quote.article})")
 
         # Наличие пункта проверяется по разобранному списку номеров, а не
         # поиском «4.» по тексту: парсер выносит номер пункта в отдельное поле,
