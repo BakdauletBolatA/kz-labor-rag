@@ -404,16 +404,29 @@ class TestShippedDataset:
 
     def test_questions_avoid_code_language(self, dataset):
         # Вопрос, написанный терминами статьи, retrieval находит тривиально,
-        # и baseline оказывается завышен.
-        canned = (
-            "каков порядок",
-            "в соответствии с",
-            "настоящего кодекса",
-            "предусмотренных подпунктами",
-            "регламентируется",
-        )
+        # и baseline оказывается завышен. Правило одинаково для обоих срезов:
+        # казахский вопрос, собранный из формулировок кодекса, завышает ровно
+        # так же, а охранялся до сих пор только русский.
+        canned = {
+            "ru": (
+                "каков порядок",
+                "в соответствии с",
+                "настоящего кодекса",
+                "предусмотренных подпунктами",
+                "регламентируется",
+            ),
+            "kk": (
+                "осы кодекс",
+                "көзделген",
+                "белгіленген тәртіппен",
+                "реттеледі",
+                "тәртібі қандай",
+            ),
+        }
         offenders = [
-            x.id for x in dataset.ready if any(phrase in x.question.lower() for phrase in canned)
+            x.id
+            for x in dataset.ready
+            if any(phrase in x.question.lower() for phrase in canned.get(x.lang, ()))
         ]
         assert not offenders, f"вопросы написаны языком кодекса: {offenders}"
 
