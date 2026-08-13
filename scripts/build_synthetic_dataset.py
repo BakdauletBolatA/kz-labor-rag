@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import json
-import re
 import sys
 from collections import Counter
 from dataclasses import replace
@@ -26,6 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from kz_labor_rag.corpus.evidence import extract_evidence  # noqa: E402
 from kz_labor_rag.corpus.parser import parse_file  # noqa: E402
 from kz_labor_rag.eval.dataset import (  # noqa: E402
     DatasetError,
@@ -254,47 +254,6 @@ SPECS: list[tuple] = [
 # Лежат в том же файле, что и готовые вопросы, но со status='draft':
 # так видно, сколько ещё осталось, и при этом гейт их не засчитывает.
 REAL_SLOTS = 15
-
-
-def extract_evidence(article_text: str, anchor: str, *, max_len: int = 600) -> str:
-    """Вырезать из текста статьи дословный фрагмент вокруг якоря.
-
-    Два дефекта, найденных на ревью, исправлены здесь.
-
-    Первый: точка с запятой считалась концом предложения. В юридическом тексте
-    «;» разделяет пункты перечня, и цитата обрывалась на первом же элементе.
-    На вопросе про беременную и ночные смены это отрезало фрагмент ровно перед
-    словами «беременные женщины» — то есть перед тем, ради чего вопрос написан.
-    Концом предложения считается только точка.
-
-    Второй: если после якоря точки с пробелом не встречалось (якорь в последнем
-    предложении статьи), расширение молча не происходило вовсе и цитата
-    оставалась равной якорю. Отсюда «в повышенном размере» без «но не ниже чем
-    в полуторном размере». Теперь при отсутствии точки фрагмент доводится до
-    конца текста статьи.
-
-    Возвращается подстрока исходного текста — ни одного символа не дописывается.
-    """
-    pos = article_text.find(anchor)
-    if pos < 0:
-        raise ValueError(f"якорь не найден в тексте статьи: {anchor!r}")
-
-    left = max(
-        article_text.rfind(". ", 0, pos) + 2,
-        article_text.rfind("\n", 0, pos) + 1,
-        0,
-    )
-    tail_start = pos + len(anchor)
-    end = re.search(r"\.(?:\s|$)", article_text[tail_start:])
-    right = tail_start + (end.start() + 1 if end else len(article_text) - tail_start)
-
-    fragment = article_text[left:right].strip()
-    if len(fragment) > max_len:
-        # Перечни в кодексе бывают на тысячу символов. Режем по границе слова,
-        # начиная от самого якоря: он и есть то, что доказывает разметку.
-        cut = article_text[pos : pos + max_len]
-        fragment = cut[: cut.rfind(" ")].strip() if " " in cut else cut.strip()
-    return fragment
 
 
 def _quotes_of(raw_evidence) -> frozenset:
