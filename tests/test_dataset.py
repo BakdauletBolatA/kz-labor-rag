@@ -338,9 +338,32 @@ class TestShippedDataset:
 
     def test_composition(self, dataset):
         s = dataset.stats
-        assert s["synthetic"] == 45
+        assert s["synthetic"] == 60
         assert s["ru"] == 45
+        assert s["kk"] == 15
+        assert s["real"] == 0
         assert s["draft_slots"] == 15
+
+    def test_kazakh_slice_is_complete(self, dataset):
+        kk = dataset.slice("kk")
+        assert len(kk) == 15
+        assert all(q.origin == "synthetic" and q.source_url is None for q in kk)
+
+    def test_kazakh_slice_reuses_verified_russian_markup(self, dataset):
+        # Казахские вопросы зеркалят русские: те же статьи, тот же пункт, те же
+        # цитаты — меняется только язык вопроса. Так разница в метрике между
+        # срезами объясняется кроссязычностью, а не другой разметкой.
+        ru_quotes: dict[str, set[str]] = {}
+        for q in dataset.slice("ru"):
+            for e in q.evidence:
+                ru_quotes.setdefault(e.article, set()).add(e.quote)
+
+        for q in dataset.slice("kk"):
+            for e in q.evidence:
+                assert e.quote in ru_quotes.get(e.article, set()), (
+                    f"{q.id}: цитата к ст. {e.article} не совпадает ни с одной "
+                    "проверенной цитатой русского среза"
+                )
 
     def test_real_slots_are_reserved_but_empty(self, dataset):
         drafts = [x for x in dataset if x.is_draft]
