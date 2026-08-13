@@ -5,6 +5,17 @@
 VENV := .venv
 PY   := $(VENV)/bin/python
 
+# Интерпретатор, на котором собирается venv. Проект требует Python >= 3.12
+# (requires-python в pyproject.toml), а `python3` в системе бывает старее.
+# Тогда venv создавался молча, а падал уже pip — и не про версию Python, а
+# сообщением резолвера «requires a different Python», из которого причина не
+# читается: выглядит как проблема с зависимостями, а не с интерпретатором.
+# Поэтому версия проверяется до создания venv.
+#
+# Свой интерпретатор: make venv PYTHON=/usr/bin/python3.12
+PYTHON ?=
+PYTHON_CANDIDATES := $(if $(PYTHON),$(PYTHON),python3 python3.12 python3.13 python3.14)
+
 .PHONY: help
 help: ## показать список команд
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -14,7 +25,21 @@ help: ## показать список команд
 
 .PHONY: venv
 venv: ## создать venv и поставить проект в режиме разработки
-	python3 -m venv $(VENV)
+	@found=""; \
+	for p in $(PYTHON_CANDIDATES); do \
+		command -v "$$p" >/dev/null 2>&1 || continue; \
+		"$$p" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' \
+			2>/dev/null || continue; \
+		found="$$p"; break; \
+	done; \
+	if [ -z "$$found" ]; then \
+		echo "Нужен Python >= 3.12: этого требует requires-python в pyproject.toml." >&2; \
+		echo "Проверены: $(PYTHON_CANDIDATES)" >&2; \
+		echo "Укажите свой: make venv PYTHON=/путь/к/python3.12" >&2; \
+		exit 1; \
+	fi; \
+	echo "venv на $$("$$found" -V)"; \
+	"$$found" -m venv $(VENV)
 	$(VENV)/bin/pip install -q --upgrade pip
 	$(VENV)/bin/pip install -q -e '.[dev]'
 
