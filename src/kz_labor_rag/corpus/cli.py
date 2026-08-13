@@ -2,6 +2,7 @@
 
 kzrag-corpus stats            # разобрать и показать статистику
 kzrag-corpus show 54          # показать разобранную статью
+kzrag-corpus quote 62 "в течение пяти"   # вырезать цитату по якорю для evidence
 kzrag-corpus dump             # выгрузить разбор в JSON
 kzrag-corpus check-dataset    # сверить эталон датасета с текстом кодекса
 """
@@ -15,6 +16,7 @@ import sys
 from pathlib import Path
 
 from kz_labor_rag.config import ConfigError, load_config
+from kz_labor_rag.corpus.evidence import extract_evidence
 from kz_labor_rag.corpus.parser import ParseError, parse_file
 from kz_labor_rag.eval.dataset import DatasetError, load_dataset, validate_against_corpus
 from kz_labor_rag.types import article_sort_key, normalize_article
@@ -77,6 +79,52 @@ def cmd_show(args) -> int:
         print(f"  сноска: {note}")
     for note in article.izpi_notes:
         print(f"  ИЗПИ:   {note}")
+    return 0
+
+
+def cmd_quote(args) -> int:
+    """Вырезать цитату по якорю — для разметки реальных и казахских вопросов.
+
+    Синтетические вопросы задаются якорями в SPECS, и цитату им вырезает
+    сборка. Реальные и казахские пишутся в датасет руками, и цитату там иначе
+    пришлось бы перенабирать из кодекса — то есть ровно то, чего вся схема
+    избегает: перенабранная цитата отличается от текста статьи одним символом,
+    и обоснование разметки становится неверным.
+
+    Печатается тот же фрагмент, что положила бы в датасет сборка: правило
+    вырезания одно на всех, в ``corpus/evidence.py``.
+    """
+    _, code = _load(args)
+    number = normalize_article(args.article)
+    article = code.by_number.get(number)
+    if article is None:
+        near = sorted(code.by_number, key=article_sort_key)[:5]
+        print(f"Статья {number} не найдена. Например, есть: {', '.join(near)}", file=sys.stderr)
+        return 1
+    if article.is_repealed:
+        # Статья без нормативного текста непроходима в принципе, и в метриках
+        # это выглядит как провал поиска, а не как ошибка разметки.
+        print(f"Статья {number} исключена из кодекса, цитировать нечего.", file=sys.stderr)
+        return 1
+
+    try:
+        quote = extract_evidence(article.full_text, args.anchor)
+    except ValueError:
+        print(
+            f"Якорь не найден в тексте ст. {number}: {args.anchor!r}\n"
+            f"Посмотреть текст целиком: kzrag-corpus show {number}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(article.heading)
+    if article.has_future_edition:
+        print("  [объявлена будущая редакция: формулировка зависит от даты]")
+    if clauses := article.clause_numbers:
+        print(f"  пункты: {', '.join(clauses)}")
+    print(f"\n> {quote}\n")
+    print("в evidence:")
+    print(json.dumps({"article": number, "quote": quote}, ensure_ascii=False))
     return 0
 
 
@@ -175,6 +223,11 @@ def main(argv: list[str] | None = None) -> int:
     p_show = sub.add_parser("show", help="показать статью")
     p_show.add_argument("article")
     p_show.set_defaults(func=cmd_show)
+
+    p_quote = sub.add_parser("quote", help="вырезать цитату по якорю для evidence")
+    p_quote.add_argument("article")
+    p_quote.add_argument("anchor", help="фрагмент текста статьи, вокруг которого резать")
+    p_quote.set_defaults(func=cmd_quote)
 
     p_dump = sub.add_parser("dump", help="выгрузить разбор в JSON")
     p_dump.add_argument("--out", default=None)
