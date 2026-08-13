@@ -9,6 +9,10 @@
 
 Формат записи спецификации:
     (id, вопрос, required, acceptable, preferred_clause, tags, (статья, якорь), заметка)
+
+Скрипт владеет только синтетической русской частью. Реальные вопросы и
+казахский срез пишутся в датасет руками и здесь лишь переносятся из прошлой
+версии файла — см. ``carry_over_authored``.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -23,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from kz_labor_rag.corpus.parser import parse_file  # noqa: E402
 from kz_labor_rag.eval.dataset import (  # noqa: E402
+    DatasetError,
     EvalDataset,
     EvalQuestion,
     save_dataset,
@@ -352,6 +358,75 @@ def carry_over_review_marks(new: list, previous_path: str) -> tuple[list, list[s
     return carried, reset
 
 
+def is_generated(raw: dict) -> bool:
+    """Владеет ли этим вопросом скрипт.
+
+    Владение определяется по ``origin`` и ``lang``, а не по списку id из
+    SPECS. Если спецификацию удалили, её строка обязана исчезнуть из датасета:
+    иначе в эталоне навсегда остался бы вопрос, которого в SPECS уже нет, и
+    правка спецификации переставала бы быть единственным источником истины.
+    """
+    return raw.get("origin") == "synthetic" and raw.get("lang") == "ru"
+
+
+def carry_over_authored(previous_path: str) -> tuple[list[EvalQuestion], list[str]]:
+    """Перенести вопросы, которые скрипт не генерирует, но обязан сохранить.
+
+    Реальные вопросы и казахский срез пишутся руками прямо в датасет. Скрипт
+    пересобирал файл целиком и всё остальное затирал: слоты ``real_*``
+    пересоздавались пустыми при каждом запуске, а казахскому вопросу места не
+    было вовсе. Первая же вписанная в файл реальная формулировка исчезала на
+    следующем ``make dataset`` молча — вместе с ссылкой на тред, из которого
+    она взята, то есть безвозвратно.
+
+    Строки читаются через схему, а не сырым JSON: рукописный вопрос, не
+    сходящийся со схемой, должен уронить сборку с указанием id, а не
+    записаться в датасет. Цитаты этих вопросов сверяются с корпусом там же,
+    где и сгенерированные, — в ``validate_against_corpus``.
+
+    Отметка ревью переносится как есть. Для сгенерированных вопросов её
+    защищает отпечаток (``carry_over_review_marks``): изменилась формулировка
+    или цитата — отметка слетает. Здесь сравнивать не с чем, файл и есть
+    источник. Правя рукописный вопрос, отметку надо снимать самому:
+    ``kzrag-review unmark <id>``.
+
+    Возвращает вопросы и список проблем схемы.
+    """
+    path = Path(previous_path)
+    if not path.exists():
+        return [], []
+
+    authored: list[EvalQuestion] = []
+    problems: list[str] = []
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        raw = json.loads(line)
+        if is_generated(raw):
+            continue
+        try:
+            authored.append(EvalQuestion.from_dict(raw, source=f"{path}:{lineno}"))
+        except DatasetError as exc:
+            problems.append(str(exc))
+    return authored, problems
+
+
+def reserve_slots(taken: set[str]) -> list[EvalQuestion]:
+    """Пустые слоты под ещё не написанные реальные вопросы.
+
+    Слот создаётся только под тот id, которого в датасете нет. Раньше все
+    пятнадцать пересоздавались безусловно, и заполненный реальный вопрос
+    затирался пустым черновиком при каждой пересборке.
+    """
+    return [
+        EvalQuestion.from_dict(
+            {"id": slot_id, "lang": "ru", "origin": "real", "status": "draft"}
+        )
+        for i in range(1, REAL_SLOTS + 1)
+        if (slot_id := f"real_{i:03d}") not in taken
+    ]
+
+
 def write_review(dataset: EvalDataset, code) -> None:
     """Собрать таблицу для ревью человеком.
 
@@ -361,7 +436,7 @@ def write_review(dataset: EvalDataset, code) -> None:
     """
     by_number = code.by_number
     lines = [
-        "# Ревью разметки синтетических вопросов",
+        "# Ревью разметки эталонных вопросов",
         "",
         "Файл сгенерирован `scripts/build_synthetic_dataset.py`. Руками не править.",
         "",
@@ -372,46 +447,65 @@ def write_review(dataset: EvalDataset, code) -> None:
         f"Редакция корпуса: **{code.edition_date}**.",
         "",
     ]
+
+    def render(q) -> list[str]:
+        arts = ", ".join(f"ст. {n}" for n in q.required_articles)
+        titles = "; ".join(by_number[n].title for n in q.required_articles if n in by_number)
+        block = [f"### {q.id} — {arts}", "", f"**Вопрос:** {q.question}", ""]
+        # Язык и источник показываются только там, где они не по умолчанию:
+        # иначе каждая из 45 синтетических карточек обрастает двумя строками
+        # «ru» и «синтетика», и ревью читать труднее, а не легче.
+        if q.lang != "ru" or q.origin != "synthetic":
+            mark = f"**Срез:** {q.lang}, {q.origin}"
+            if q.source_url:
+                mark += f" — {q.source_url}"
+            block += [mark, ""]
+        block.append(f"**Обязательные статьи:** {arts} — {titles}")
+        if q.acceptable_articles:
+            block += [
+                "",
+                "**Допустимые (не штрафуются):** "
+                + ", ".join(f"ст. {n}" for n in q.acceptable_articles),
+            ]
+        if q.preferred_clause:
+            block += ["", f"**Точный пункт:** {q.preferred_clause}"]
+        block.append("")
+        for quote in q.evidence:
+            block += [f"**Цитата — ст. {quote.article}:**", "", f"> {quote.quote}", ""]
+        if q.notes:
+            block += ["", f"*{q.notes}*"]
+        return block + ["", "---", ""]
+
     ready = sorted(dataset.ready, key=lambda q: q.id)
+    # Вопрос попадает в файл ровно один раз, под своей первой темой. Без этого
+    # вопрос с двумя тегами печатался дважды, а вопрос без тегов — ни разу:
+    # ревью по нему не проводилось, хотя гейт его требует.
+    emitted: set[str] = set()
     for tag in dict.fromkeys(t for q in ready for t in q.tags):
+        group = [q for q in ready if tag in q.tags and q.id not in emitted]
+        if not group:
+            continue
         lines += [f"## {tag}", ""]
-        for q in (x for x in ready if tag in x.tags):
-            arts = ", ".join(f"ст. {n}" for n in q.required_articles)
-            titles = "; ".join(by_number[n].title for n in q.required_articles if n in by_number)
-            lines.append(f"### {q.id} — {arts}")
-            lines.append("")
-            lines.append(f"**Вопрос:** {q.question}")
-            lines.append("")
-            lines.append(f"**Обязательные статьи:** {arts} — {titles}")
-            if q.acceptable_articles:
-                lines.append("")
-                lines.append(
-                    "**Допустимые (не штрафуются):** "
-                    + ", ".join(f"ст. {n}" for n in q.acceptable_articles)
-                )
-            if q.preferred_clause:
-                lines.append("")
-                lines.append(f"**Точный пункт:** {q.preferred_clause}")
-            lines.append("")
-            for quote in q.evidence:
-                lines.append(f"**Цитата — ст. {quote.article}:**")
-                lines.append("")
-                lines.append(f"> {quote.quote}")
-                lines.append("")
-            if q.notes:
-                lines.append("")
-                lines.append(f"*{q.notes}*")
-            lines += ["", "---", ""]
+        for q in group:
+            emitted.add(q.id)
+            lines += render(q)
+
+    if untagged := [q for q in ready if q.id not in emitted]:
+        lines += ["## без темы", ""]
+        for q in untagged:
+            lines += render(q)
 
     drafts = [q.id for q in dataset if q.is_draft]
-    lines += [
-        "## Слоты под реальные вопросы",
-        "",
-        f"Зарезервировано {len(drafts)} слотов: `{drafts[0]}`…`{drafts[-1]}`.",
-        "Они лежат в датасете со `status: draft`, в метриках не участвуют и",
-        "гейтом укомплектованности не засчитываются.",
-        "",
-    ]
+    lines += ["## Незаполненные слоты", ""]
+    if drafts:
+        lines += [
+            f"Осталось {len(drafts)}: `{drafts[0]}`…`{drafts[-1]}`.",
+            "Они лежат в датасете со `status: draft`, в метриках не участвуют и",
+            "гейтом укомплектованности не засчитываются.",
+            "",
+        ]
+    else:
+        lines += ["Незаполненных слотов не осталось.", ""]
     Path(REVIEW).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -489,24 +583,28 @@ def main() -> int:
             )
         )
 
-    # Лимит на тему: без него датасет незаметно съезжает в увольнения.
-    from collections import Counter
-
-    per_tag = Counter(tag for q in questions for tag in q.tags)
-    for tag, count in per_tag.items():
-        if count > MAX_PER_TAG:
-            problems.append(f"тема '{tag}': {count} вопросов, максимум {MAX_PER_TAG}")
-
     questions, reset = carry_over_review_marks(questions, OUT)
 
-    slots = [
-        EvalQuestion.from_dict(
-            {"id": f"real_{i:03d}", "lang": "ru", "origin": "real", "status": "draft"}
-        )
-        for i in range(1, REAL_SLOTS + 1)
-    ]
+    authored, authored_problems = carry_over_authored(OUT)
+    problems += authored_problems
 
-    dataset = EvalDataset(questions=tuple(questions) + tuple(slots))
+    slots = reserve_slots({q.id for q in questions} | {q.id for q in authored})
+
+    dataset = EvalDataset(questions=tuple(questions) + tuple(authored) + tuple(slots))
+
+    if duplicates := [qid for qid, n in Counter(q.id for q in dataset).items() if n > 1]:
+        problems.append(f"повторяющиеся id: {sorted(duplicates)}")
+
+    # Лимит на тему: без него датасет незаметно съезжает в увольнения. Считается
+    # внутри языка: казахский срез намеренно повторяет темы русского, и общий
+    # счётчик запретил бы это на ровном месте.
+    per_lang_tag = Counter((q.lang, tag) for q in dataset.ready for tag in q.tags)
+    for (lang, tag), count in per_lang_tag.items():
+        if count > MAX_PER_TAG:
+            problems.append(
+                f"тема '{tag}' ({lang}): {count} вопросов, максимум {MAX_PER_TAG}"
+            )
+
     report = validate_against_corpus(
         dataset,
         code.article_texts(),
@@ -525,20 +623,26 @@ def main() -> int:
 
     save_dataset(dataset, OUT)
     write_review(dataset, code)
-    kept = sum(1 for q in questions if q.reviewed_by_human)
+    ready = dataset.ready
+    kept = sum(1 for q in ready if q.reviewed_by_human)
     print(f"\nОтметки ревью: сохранено {kept}, сброшено {len(reset)}")
     if reset:
         print(f"  требуют повторного ревью: {', '.join(sorted(reset))}")
     print(f"Записано: {OUT}")
     print(f"Записано: {REVIEW}")
-    print(f"  готовых вопросов : {len(questions)}")
-    print(f"  черновых слотов  : {len(slots)}")
+    stats = dataset.stats
+    print(f"  готовых вопросов : {len(ready)}")
+    print(f"    сгенерировано  : {len(questions)}")
+    print(f"    перенесено     : {len(ready) - len(questions)}")
+    print(f"  черновиков       : {stats['draft_slots']} (новых слотов: {len(slots)})")
+    print(f"  ru / kk          : {stats['ru']} / {stats['kk']}")
+    print(f"  real / synthetic : {stats['real']} / {stats['synthetic']}")
     print("\nПо темам:")
-    for tag, count in sorted(per_tag.items(), key=lambda kv: -kv[1]):
-        print(f"  {tag:22} {count}")
-    multi = [q.id for q in questions if len(q.required_articles) > 1]
+    for (lang, tag), count in sorted(per_lang_tag.items(), key=lambda kv: -kv[1]):
+        print(f"  {tag:22} {lang}  {count}")
+    multi = [q.id for q in ready if len(q.required_articles) > 1]
     print(f"\nМногосоставных (эталон из связки статей): {len(multi)} — {', '.join(multi)}")
-    print(f"С preferred_clause: {sum(1 for q in questions if q.preferred_clause)}")
+    print(f"С preferred_clause: {sum(1 for q in ready if q.preferred_clause)}")
     return 0
 
 

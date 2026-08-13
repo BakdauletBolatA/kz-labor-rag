@@ -348,9 +348,12 @@ class TestShippedDataset:
         assert all(x.origin == "real" and not x.question for x in drafts)
 
     def test_topic_limit_respected(self, dataset):
-        counts = Counter(tag for x in dataset.ready for tag in x.tags)
+        # Лимит считается внутри языка: казахский срез намеренно повторяет темы
+        # русского, и общий счётчик запретил бы это на ровном месте — на 8 ru
+        # плюс 8 kk по одной теме. Сборщик проверяет ровно так же.
+        counts = Counter((x.lang, tag) for x in dataset.ready for tag in x.tags)
         assert counts, "у вопросов должны быть теги"
-        over = {tag: n for tag, n in counts.items() if n > 8}
+        over = {key: n for key, n in counts.items() if n > 8}
         assert not over, f"превышен лимит 8 вопросов на тему: {over}"
 
     def test_required_topics_are_covered(self, dataset):
