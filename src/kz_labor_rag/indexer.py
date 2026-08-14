@@ -9,6 +9,7 @@ recall».
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +21,7 @@ from kz_labor_rag.corpus.chunker import (
     build_tokenizer,
     chunking_signature,
 )
-from kz_labor_rag.corpus.parser import parse_file
+from kz_labor_rag.corpus.parser import PARSER_VERSION, parse_file
 from kz_labor_rag.embeddings.encoder import Encoder
 from kz_labor_rag.retrieval.factory import build_chunking_params, build_encoder, build_store
 from kz_labor_rag.retrieval.store import PgVectorStore
@@ -92,11 +93,31 @@ def assert_chunks_fit(chunks, budget: EncodingBudget) -> int:
     return max((n for _, n in lengths), default=0)
 
 
+def corpus_sha256(config: Config) -> str | None:
+    """Хеш сохранённого HTML корпуса. ``None``, если файла нет.
+
+    Сверять редакцию по хешу файла, а не по разобранной ``edition_date``:
+    разбор стоит секунды, а ``index_mismatch`` дёргается и из ``/health``.
+    Хеш при этом строже — он ловит и правку текста, при которой метка редакции
+    в подвале не изменилась.
+    """
+    path = Path(config.path_of("corpus.raw_html"))
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def index_mismatch(config: Config, store: PgVectorStore) -> str | None:
     """Проверить, что построенный индекс соответствует текущему конфигу.
 
     Возвращает описание расхождения или None. Отдельная функция, потому что
     проверку делают и CLI, и API, и eval-прогон.
+
+    Сверяются не только нарезка и модель. Идентификатор чанка позиционный, а
+    обычная сборка делает upsert без удаления, поэтому любое изменение, от
+    которого меняются тексты чанков, обязано приводить к пересозданию с нуля.
+    Иначе новая редакция кодекса, давшая меньше чанков, оставляла бы хвост
+    строк от прошлой — и поиск возвращал бы текст редакции, которой уже нет.
     """
     meta = store.read_meta()
     if meta is None:
@@ -115,6 +136,35 @@ def index_mismatch(config: Config, store: PgVectorStore) -> str | None:
         return (
             "индекс построен другой моделью эмбеддингов: "
             f"в базе {meta.get('embeddings_model')}, в конфиге {expected_model}. "
+            "Нужна переиндексация: kzrag-index build --rebuild"
+        )
+
+    expected_corpus = corpus_sha256(config)
+    if expected_corpus is None:
+        return (
+            "сырой HTML корпуса не найден, сверить редакцию индекса не с чем. "
+            "Скачайте корпус: make corpus"
+        )
+    if meta.get("corpus_sha256") != expected_corpus:
+        return (
+            "индекс построен на другой редакции корпуса: "
+            f"в базе {meta.get('corpus_sha256')}, на диске {expected_corpus}. "
+            "Нужна переиндексация: kzrag-index build --rebuild"
+        )
+    if meta.get("parser_version") != PARSER_VERSION:
+        return (
+            "индекс построен другой версией парсера: "
+            f"в базе {meta.get('parser_version')}, в коде {PARSER_VERSION}. "
+            "Нужна переиндексация: kzrag-index build --rebuild"
+        )
+
+    # Число строк против того, что записала сборка: остаточные строки от
+    # прошлого индекса ловятся независимо от причины их появления.
+    rows = store.count()
+    if meta.get("chunks") is not None and rows != meta["chunks"]:
+        return (
+            f"в таблице {rows} строк, а последняя сборка записала {meta['chunks']}. "
+            "Похоже на остаток от прошлого индекса. "
             "Нужна переиндексация: kzrag-index build --rebuild"
         )
     return None
@@ -187,6 +237,7 @@ def build_index(
             "encoder": encoder.descriptor,
             "config_fingerprint": config.fingerprint,
             "corpus_edition_date": code.edition_date,
+            "corpus_sha256": corpus_sha256(config),
             "parser_version": code.parser_version,
             "chunks": written,
             "chunks_truncated_by_model": 0,

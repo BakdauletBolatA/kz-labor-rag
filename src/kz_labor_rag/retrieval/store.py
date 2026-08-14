@@ -184,6 +184,13 @@ class PgVectorStore:
     # --- запись -----------------------------------------------------------
 
     def upsert(self, chunks: Sequence[Chunk], vectors: np.ndarray) -> int:
+        """Записать чанки с векторами.
+
+        При конфликте обновляются **все** колонки. Раньше обновлялись только
+        текст, статьи, пункты и вектор, а заголовок статьи, раздел, глава и
+        границы оставались от прошлой сборки: строка получалась смешанной, а
+        ``article_title`` не декоративен — он уходит в контекст модели.
+        """
         if len(chunks) != len(vectors):
             raise StoreError(
                 f"чанков {len(chunks)}, векторов {len(vectors)} — рассинхрон индексации"
@@ -223,6 +230,11 @@ class PgVectorStore:
                     text = EXCLUDED.text,
                     articles = EXCLUDED.articles,
                     spans = EXCLUDED.spans,
+                    article_title = EXCLUDED.article_title,
+                    section = EXCLUDED.section,
+                    chapter = EXCLUDED.chapter,
+                    char_start = EXCLUDED.char_start,
+                    char_end = EXCLUDED.char_end,
                     embedding = EXCLUDED.embedding
                 """,
                 rows,
@@ -244,12 +256,20 @@ class PgVectorStore:
         )
 
     def read_meta(self) -> dict[str, Any] | None:
+        from psycopg import errors as pg_errors
+
         conn = self.connect()
         try:
             row = conn.execute(
                 f"SELECT payload, built_at FROM {self.params.meta_table} WHERE id = 1"
             ).fetchone()
-        except Exception:  # noqa: BLE001 — таблицы метаданных может не быть вовсе
+        except pg_errors.UndefinedTable:
+            # Единственный законный случай: индекс ещё не строили. Всё
+            # остальное — сломанные права, битая таблица, потерянное
+            # соединение — раньше попадало под тот же except и превращалось
+            # в «метаданных нет». Дальше по цепочке это давало пустой
+            # provenance и None в ключах сопоставимости, а два прогона с
+            # None сравнивались друг с другом как сопоставимые.
             return None
         if row is None:
             return None
