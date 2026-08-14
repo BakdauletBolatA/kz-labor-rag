@@ -17,13 +17,19 @@ from kz_labor_rag.eval.judge import format_context
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
 from kz_labor_rag.types import RetrievedChunk, normalize_article
 
-# Ссылки вида «ст. 52», «статья 52», «(ст. 52 п. 1)».
-_ARTICLE_CITATION = re.compile(
-    # Составные номера («ст. 73-1») обязаны ловиться целиком: иначе
-    # citation_validity примет ссылку на 73-1 за ссылку на 73.
-    r"\b(?:ст\.?|стать[ияеёю]м?и?)\s*(\d{1,3}(?:-\d{1,2})?)",
-    re.IGNORECASE,
-)
+# Номер статьи: составные («73-1») обязаны ловиться целиком, иначе
+# citation_validity примет ссылку на 73-1 за ссылку на 73.
+_NUMBER = r"\d{1,3}(?:-\d{1,2})?"
+
+# Начало ссылки: «ст. 52», «статья 52», «(ст. 52 п. 1)».
+_CITATION_HEAD = re.compile(rf"\b(?:ст\.?|стать[ияеёю]м?и?)\s*({_NUMBER})", re.IGNORECASE)
+
+# Продолжение перечисления: «, 53», « и 54». Ключевое слово в перечислении не
+# повторяется, и без этого «согласно статьям 52 и 53» давало одну статью из
+# двух. Связок норм в датасете семь, то есть теряется самый частый способ
+# сослаться сразу на несколько статей, а выдуманная вторая ссылка становится
+# для citation_validity невидимой.
+_CITATION_MORE = re.compile(rf"\s*(?:,|и)\s*({_NUMBER})")
 
 
 def extract_cited_articles(answer: str) -> list[str]:
@@ -31,14 +37,27 @@ def extract_cited_articles(answer: str) -> list[str]:
 
     Нужно для ``citation_validity`` — детерминированной проверки без LLM.
     Порядок сохраняется, дубли убираются.
+
+    Перечисление обрывается на первом же не-номере, поэтому «ст. 52 п. 1»
+    не превращает пункт в статью. Обратная сторона: «ст. 62 и 5 дней» отдаст
+    несуществующую ссылку на ст. 5. Это осознанный размен — пропущенная ссылка
+    прячет галлюцинацию, лишняя её в худшем случае преувеличивает.
     """
     seen: set[str] = set()
     out: list[str] = []
-    for match in _ARTICLE_CITATION.finditer(answer):
-        num = normalize_article(match.group(1))
+
+    def take(raw: str) -> None:
+        num = normalize_article(raw)
         if num not in seen:
             seen.add(num)
             out.append(num)
+
+    for match in _CITATION_HEAD.finditer(answer):
+        take(match.group(1))
+        pos = match.end()
+        while tail := _CITATION_MORE.match(answer, pos):
+            take(tail.group(1))
+            pos = tail.end()
     return out
 
 

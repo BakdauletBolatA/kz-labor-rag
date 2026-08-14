@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 
 import pytest
-from conftest import FakeGenerator, FakeJudge, FakeRetriever, ranked
+from conftest import FakeGenerator, FakeJudge, FakeRetriever, make_chunk, ranked
 
 from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
 from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
+from kz_labor_rag.types import RetrievedChunk
 
 BASE = {
     "question": "Может ли работодатель уволить работника в отпуске?",
@@ -174,6 +175,35 @@ class TestResultShape:
         assert result["version"] == "test-v0"
         assert result["components"]["retriever"]["version"] == "fake-v0"
         assert len(result["questions"]) == 75
+
+    def test_comparability_covers_window_and_context_format(self, config):
+        """Оба ключа добавлены по итогам аудита.
+
+        Без ``k`` смена окна 5 -> 10 не роняла сравнение: главные метрики
+        просто выпадали из таблицы прочерками. Без ``context_format`` правка
+        функции, собирающей промпт, меняла вход модели молча — реестр
+        промптов стережёт только текстовые файлы.
+        """
+        ds = complete_dataset()
+        responses = {x.question: ranked("54") for x in ds}
+        result = EvalRunner(config, FakeRetriever(responses)).run(ds)
+
+        block = result["comparability"]
+        assert block["k"] == config.get("eval.k")
+        assert block["context_format"]
+
+    def test_retrieved_dump_lists_every_article_of_a_chunk(self, config):
+        # Поле "article" — головная статья, «для отладки и отображения».
+        # Чанк регулярно накрывает несколько, и по дампу это должно быть видно.
+        ds = complete_dataset()
+        chunk = RetrievedChunk(
+            chunk=make_chunk("45", extra_articles=("46", "47")), score=0.9, rank=1
+        )
+        responses = {x.question: [chunk] for x in ds}
+        result = EvalRunner(config, FakeRetriever(responses)).run(ds)
+
+        first = result["questions"][0]["retrieved"][0]
+        assert first["articles"] == ["45", "46", "47"]
 
     def test_per_question_retrieval_is_debuggable(self, config):
         ds = complete_dataset()

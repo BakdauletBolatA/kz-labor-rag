@@ -24,6 +24,8 @@ from typing import Any
 # Ключ — путь в блоке comparability, значение — как объяснить расхождение.
 COMPARABILITY_KEYS: dict[str, str] = {
     "metrics_version": "изменились сами формулы метрик",
+    "k": "метрики посчитаны на окне разного размера",
+    "context_format": "модели показывали контекст в разном формате",
     "chunking_signature": "корпус нарезан по-другому — тексты чанков не те же",
     "embeddings_model": "векторы посчитаны другой моделью",
     "dataset_sha256": "прогоны сделаны на разных датасетах",
@@ -31,16 +33,30 @@ COMPARABILITY_KEYS: dict[str, str] = {
     "judge_prompt": "faithfulness измерена разными промптами судьи",
 }
 
-# Метрики, которые имеет смысл ставить рядом в таблице «до/после».
-TABLE_METRICS: tuple[str, ...] = (
-    "recall@5",
-    "strict_hit@5",
+# Метрики для таблицы «до/после», в порядке показа. Имена вида recall@k
+# зависят от k, поэтому берутся из самих прогонов: захардкоженное «recall@5»
+# при k=10 не находило ничего, и главные метрики молча выпадали из таблицы,
+# оставляя её выглядеть правдоподобно.
+METRIC_ORDER: tuple[str, ...] = (
+    "recall@",
+    "strict_hit@",
     "mrr",
-    "clause_hit@5",
-    "clause_precision@5",
+    "clause_hit@",
+    "clause_precision@",
     "citation_validity",
     "faithfulness",
 )
+
+
+def table_metrics(*slices: dict) -> list[str]:
+    """Имена метрик, реально присутствующих в прогонах, в каноническом порядке."""
+    keys = list(dict.fromkeys(key for part in slices for key in part))
+    out: list[str] = []
+    for name in METRIC_ORDER:
+        out += [
+            key for key in keys if (key.startswith(name) if name.endswith("@") else key == name)
+        ]
+    return out
 
 
 class IncomparableRunsError(RuntimeError):
@@ -111,7 +127,7 @@ def build_table(before: dict, after: dict, *, language: str | None = None) -> st
     )
     lines = [header, "-" * len(header)]
 
-    for metric in TABLE_METRICS:
+    for metric in table_metrics(left, right):
         a, b = left.get(metric), right.get(metric)
         if a is None and b is None:
             continue

@@ -27,7 +27,7 @@ from kz_labor_rag.config import Config
 from kz_labor_rag.eval import metrics as M
 from kz_labor_rag.eval.dataset import CompletenessRule, EvalDataset, EvalQuestion
 from kz_labor_rag.eval.generator import Generation, Generator
-from kz_labor_rag.eval.judge import Judge, Judgement
+from kz_labor_rag.eval.judge import Judge, Judgement, context_format_fingerprint
 from kz_labor_rag.types import Retriever
 
 RESULT_SCHEMA_VERSION = "1.0"
@@ -195,9 +195,10 @@ class EvalRunner:
 
         qm = M.QuestionMetrics(
             question_id=q.id,
-            recall_at_k=M.recall_at_k(q.required_articles, ranked, self.k),
-            strict_hit_at_k=M.strict_hit_at_k(q.required_articles, ranked, self.k),
-            reciprocal_rank=M.reciprocal_rank(q.required_articles, ranked),
+            # Окно метрик — по чанкам: это ровно то, что показано генератору.
+            recall_at_k=M.recall_at_k(q.required_articles, chunks, self.k),
+            strict_hit_at_k=M.strict_hit_at_k(q.required_articles, chunks, self.k),
+            reciprocal_rank=M.reciprocal_rank(q.required_articles, chunks),
             citation_validity=citation_validity,
             faithfulness=faithfulness,
             clause_precision_at_k=clause_precision,
@@ -213,6 +214,7 @@ class EvalRunner:
                     "rank": c.rank,
                     "chunk_id": c.chunk_id,
                     "article": c.article,
+                    "articles": list(c.articles),
                     "clauses": list(c.chunk.clauses),
                     "score": c.score,
                     "preview": c.text[:240],
@@ -301,6 +303,13 @@ class EvalRunner:
             # перенарезку корпуса.
             "comparability": {
                 "metrics_version": M.METRICS_VERSION,
+                # Размер окна: EVALUATION.md требует одинакового k, но в ключах
+                # его не было, и смена 5 -> 10 не роняла сравнение, а рисовала
+                # таблицу с прочерками вместо главных метрик.
+                "k": self.k,
+                # Формат контекста — фактическая часть промпта, реестром не
+                # покрытая: его правка меняла вход модели молча.
+                "context_format": context_format_fingerprint(),
                 "chunking_signature": provenance.get("chunking_signature"),
                 "embeddings_model": provenance.get("embeddings_model"),
                 "dataset_sha256": dataset_sha,

@@ -25,7 +25,9 @@ from kz_labor_rag.eval.compare import (
 )
 
 BASE_COMPARABILITY = {
-    "metrics_version": "1.0",
+    "metrics_version": "2.0",
+    "k": 5,
+    "context_format": "1b7f90517f8c",
     "chunking_signature": "4d4ae0162b8c9a49",
     "embeddings_model": "intfloat/multilingual-e5-base",
     "dataset_sha256": "abc123",
@@ -50,6 +52,38 @@ def run(version: str, *, recall: float = 0.5, failures=None, **overrides) -> dic
             "by_language": {"ru": {"n": 60, "recall@5": recall, "retrieval_failures": []}},
         },
     }
+
+
+class TestWindowSizeIsPartOfComparability:
+    """Смена ``eval.k`` обязана ронять сравнение, а не портить таблицу.
+
+    Ключа ``k`` в блоке не было. Имена метрик содержат k, поэтому при k=10
+    строки recall@5 и strict_hit@5 не находились ни в одном прогоне и
+    печатались прочерками — таблица выглядела так, будто новый прогон их
+    просто не измерял, и рядом сообщала о «починившихся» вопросах.
+    """
+
+    def test_different_k_refuses(self):
+        with pytest.raises(IncomparableRunsError, match="окне разного размера"):
+            build_table(run("baseline-v0"), run("iter-1", k=10))
+
+    def test_metric_names_follow_k(self):
+        # Оба прогона на k=10: таблица обязана показать recall@10, а не пустоту.
+        def at_ten(version: str, recall: float) -> dict:
+            result = run(version, recall=recall, k=10)
+            result["aggregates"]["primary"] = {
+                "n": 60,
+                "recall@10": recall,
+                "strict_hit@10": recall / 2,
+                "mrr": recall,
+                "retrieval_failures": [],
+            }
+            return result
+
+        table = build_table(at_ten("baseline-v0", 0.5), at_ten("iter-1", 0.7))
+        assert "recall@10" in table
+        assert "+0.200" in table
+        assert "recall@5" not in table
 
 
 class TestRefusal:

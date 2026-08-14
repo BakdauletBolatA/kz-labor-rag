@@ -29,61 +29,120 @@ class TestRankArticles:
         assert M.rank_articles([]) == []
 
 
+def multi(cid: str, *articles: str, score: float = 0.9, rank: int = 1) -> RetrievedChunk:
+    """Чанк, накрывший несколько статей, — обычное дело при нарезке по токенам."""
+    return RetrievedChunk(chunk=make_chunk(articles[0], extra_articles=articles[1:], cid=cid),
+                          score=score, rank=rank)
+
+
+class TestWindowIsCountedInChunks:
+    """Окно k — по чанкам, а не по статьям.
+
+    Версия метрик 1.0 разворачивала k чанков в плоский список статей и брала
+    первые k из него. При ~4 статьях на чанк recall@5 видел первый чанк с
+    четвертью из пяти, то есть мерил четверть того контекста, который уходит
+    в генератор.
+    """
+
+    def _spanning(self):
+        # Первый чанк накрыл четыре статьи, ответ лежит во втором из двух.
+        return [
+            multi("c1", "45", "46", "47", "48", score=0.91, rank=1),
+            multi("c2", "52", "53", score=0.88, rank=2),
+        ]
+
+    def test_required_in_second_chunk_is_found(self):
+        assert M.recall_at_k(["52", "53"], self._spanning(), k=5) == 1.0
+
+    def test_strict_hit_sees_the_whole_window(self):
+        assert M.strict_hit_at_k(["52", "53"], self._spanning(), k=5) == 1.0
+
+    def test_clause_and_article_metrics_agree_on_the_window(self):
+        # Раньше здесь получалось противоречие: точный пункт ст.53 найден
+        # (clause_hit=1.0), а сама ст.53 «не в топ-5» (strict_hit=0.0).
+        chunks = [
+            multi("c1", "45", "46", "47", "48", score=0.91, rank=1),
+            RetrievedChunk(chunk=make_chunk("53", ("1",), cid="c2"), score=0.88, rank=2),
+        ]
+        assert M.clause_hit_at_k(ClauseRef("53", "1"), chunks, k=5) == 1.0
+        assert M.strict_hit_at_k(["53"], chunks, k=5) == 1.0
+
+    def test_beyond_the_window_is_still_a_miss(self):
+        chunks = [multi(f"c{i}", str(i)) for i in range(1, 6)] + [multi("c6", "54")]
+        assert M.recall_at_k(["54"], chunks, k=5) == 0.0
+
+
 class TestRecallAtK:
     def test_single_required_found(self):
-        assert M.recall_at_k(["54"], ["10", "54", "33"], k=5) == 1.0
+        assert M.recall_at_k(["54"], ranked("10", "54", "33"), k=5) == 1.0
 
     def test_single_required_missed(self):
-        assert M.recall_at_k(["54"], ["10", "33", "12"], k=5) == 0.0
+        assert M.recall_at_k(["54"], ranked("10", "33", "12"), k=5) == 0.0
 
     def test_partial_credit_on_multiple_required(self):
         # Знаменатель — число обязательных статей, а не k.
-        assert M.recall_at_k(["52", "54"], ["54", "10", "11"], k=5) == 0.5
+        assert M.recall_at_k(["52", "54"], ranked("54", "10", "11"), k=5) == 0.5
 
     def test_respects_k_cutoff(self):
-        # Статья 54 на шестой позиции: в топ-5 не входит.
-        assert M.recall_at_k(["54"], ["1", "2", "3", "4", "5", "54"], k=5) == 0.0
+        # Статья 54 в шестом чанке: в топ-5 чанков не входит.
+        assert M.recall_at_k(["54"], ranked("1", "2", "3", "4", "5", "54"), k=5) == 0.0
 
     def test_acceptable_articles_do_not_dilute(self):
-        # acceptable в расчёт не входят вовсе: сюда они не передаются,
-        # и наличие «лишних» статей в выдаче recall не снижает.
-        assert M.recall_at_k(["54"], ["7", "8", "54", "9", "10"], k=5) == 1.0
+        assert M.recall_at_k(["54"], ranked("7", "8", "54", "9", "10"), k=5) == 1.0
+
+    def test_acceptable_articles_do_not_push_required_out(self):
+        # syn_001: required ст.54, acceptable ст.52. Чанк с acceptable накрыл
+        # ещё и соседей по документу. По статейному окну ст.54 вылетала за
+        # край и получала ноль — то есть acceptable штрафовала, хотя
+        # документация обещает обратное.
+        chunks = [
+            multi("c1", "52", "53", "55", "56", "57", score=0.90, rank=1),
+            multi("c2", "54", score=0.87, rank=2),
+        ]
+        assert M.recall_at_k(["54"], chunks, k=5) == 1.0
+        assert M.strict_hit_at_k(["54"], chunks, k=5) == 1.0
 
     def test_empty_required_is_an_error(self):
         with pytest.raises(ValueError, match="required_articles пуст"):
-            M.recall_at_k([], ["1", "2"], k=5)
+            M.recall_at_k([], ranked("1", "2"), k=5)
 
 
 class TestStrictHitAtK:
     def test_all_required_present(self):
-        assert M.strict_hit_at_k(["52", "54"], ["52", "54", "1"], k=5) == 1.0
+        assert M.strict_hit_at_k(["52", "54"], ranked("52", "54", "1"), k=5) == 1.0
 
     def test_one_missing_scores_zero(self):
         # Ровно тот случай, который средний recall@5 маскирует: половина
         # связки норм найдена, но ответ по такой выдаче не собрать.
-        assert M.strict_hit_at_k(["52", "54"], ["52", "1", "2"], k=5) == 0.0
+        assert M.strict_hit_at_k(["52", "54"], ranked("52", "1", "2"), k=5) == 0.0
 
 
 class TestReciprocalRank:
     @pytest.mark.parametrize(
         "articles,expected",
-        [(["54", "1", "2"], 1.0), (["1", "54", "2"], 0.5), (["1", "2", "54"], 1 / 3)],
+        [(("54", "1", "2"), 1.0), (("1", "54", "2"), 0.5), (("1", "2", "54"), 1 / 3)],
     )
     def test_position(self, articles, expected):
-        assert M.reciprocal_rank(["54"], articles) == pytest.approx(expected)
+        assert M.reciprocal_rank(["54"], ranked(*articles)) == pytest.approx(expected)
 
     def test_not_found_anywhere(self):
-        assert M.reciprocal_rank(["54"], ["1", "2", "3"]) == 0.0
+        assert M.reciprocal_rank(["54"], ranked("1", "2", "3")) == 0.0
 
     def test_counts_beyond_k_deliberately(self):
-        # MRR намеренно не обрезается по k: «нашлось на 8-м месте» и
+        # MRR намеренно не обрезается по k: «нашлось в восьмом чанке» и
         # «не нашлось вообще» должны различаться.
-        assert M.reciprocal_rank(["54"], [str(i) for i in range(1, 8)] + ["54"]) == pytest.approx(
-            1 / 8
-        )
+        chunks = ranked(*[str(i) for i in range(1, 8)], "54")
+        assert M.reciprocal_rank(["54"], chunks) == pytest.approx(1 / 8)
 
     def test_takes_first_of_several_required(self):
-        assert M.reciprocal_rank(["52", "54"], ["1", "54", "52"]) == pytest.approx(0.5)
+        assert M.reciprocal_rank(["52", "54"], ranked("1", "54", "52")) == pytest.approx(0.5)
+
+    def test_articles_of_one_chunk_share_its_rank(self):
+        # Все статьи чанка найдены одним попаданием поиска. Раньше они
+        # получали разные ранги по порядку в документе, и MRR зависел от
+        # нарезки: тут ст.48 дала бы 1/4 вместо 1/1.
+        chunks = [multi("c1", "45", "46", "47", "48")]
+        assert M.reciprocal_rank(["48"], chunks) == 1.0
 
 
 class TestClauseMetrics:

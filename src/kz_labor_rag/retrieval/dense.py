@@ -33,6 +33,11 @@ class DenseRetriever:
         self._version = version
         # В baseline candidate_k равен top_k: добирать нечего, reranking нет.
         self.candidate_k = candidate_k
+        # Проверка непустого индекса делалась на каждом поиске, то есть на
+        # каждом вопросе прогона, и её round-trip попадал в записываемую
+        # latency_ms.retrieval — в число, которое потом сравнивают между
+        # итерациями. Проверяем один раз: пустой индекс всё равно роняет прогон.
+        self._index_verified = False
 
     @property
     def version(self) -> str:
@@ -69,11 +74,13 @@ class DenseRetriever:
         }
 
     def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
-        if self.store.count() == 0:
-            raise StoreError(
-                "индекс пуст. Постройте его: kzrag-index build "
-                "(в Docker это делает точка входа при первом запуске)"
-            )
+        if not self._index_verified:
+            if self.store.count() == 0:
+                raise StoreError(
+                    "индекс пуст. Постройте его: kzrag-index build "
+                    "(в Docker это делает точка входа при первом запуске)"
+                )
+            self._index_verified = True
         vector = self.encoder.encode_query(query)
         limit = max(k, self.candidate_k or k)
         hits = self.store.search(vector, limit)
