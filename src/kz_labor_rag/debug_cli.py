@@ -100,7 +100,11 @@ def cmd_search(args) -> int:
         for chunk in chunks:
             others = [a for a in chunk.articles if a != args.article]
             tail = f"  (вместе со ст. {', '.join(others)})" if others else ""
-            print(f"  {chunk.chunk_id}  пункты: {', '.join(chunk.clauses) or '—'}{tail}")
+            # Пункты именно запрошенной статьи. chunk.clauses отдаёт пункты
+            # головной статьи чанка, а спрашивали про другую: в инструменте,
+            # которым разбирают нарезку, это показывало бы чужие пункты.
+            own = [cl for a, cl in chunk.spans if a == args.article]
+            print(f"  {chunk.chunk_id}  пункты: {', '.join(own) or '—'}{tail}")
             print(f"      {_plain(DIM)}{chunk.text[:160]}…{_plain(RESET)}")
         return 0
 

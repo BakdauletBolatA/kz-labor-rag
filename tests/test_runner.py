@@ -205,6 +205,21 @@ class TestResultShape:
         first = result["questions"][0]["retrieved"][0]
         assert first["articles"] == ["45", "46", "47"]
 
+    def test_retrieved_dump_shows_clauses_of_every_article(self, config):
+        # chunk.clauses отдаёт пункты головной статьи. В дампе, по которому
+        # разбирают промахи, это противоречило бы clause-метрике: пункт
+        # найден, а в списке его нет, потому что он у соседней статьи.
+        ds = complete_dataset()
+        chunk = RetrievedChunk(
+            chunk=make_chunk("45", ("1",), extra_articles=("46",), cid="c1"),
+            score=0.9,
+            rank=1,
+        )
+        responses = {x.question: [chunk] for x in ds}
+        result = EvalRunner(config, FakeRetriever(responses)).run(ds)
+
+        assert result["questions"][0]["retrieved"][0]["clauses"] == ["45/1"]
+
     def test_per_question_retrieval_is_debuggable(self, config):
         ds = complete_dataset()
         responses = {x.question: ranked("1", "2", "54") for x in ds}

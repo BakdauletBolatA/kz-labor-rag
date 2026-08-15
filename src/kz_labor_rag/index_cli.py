@@ -44,6 +44,11 @@ def cmd_status(args) -> int:
     for key in (
         "version",
         "corpus_edition_date",
+        # Вердикт о расхождении выносится по хешу файла и версии парсера,
+        # поэтому их видно рядом: иначе сообщение «другая редакция корпуса»
+        # не с чем сопоставить глазами.
+        "corpus_sha256",
+        "parser_version",
         "embeddings_model",
         "chunking_signature",
         "config_fingerprint",

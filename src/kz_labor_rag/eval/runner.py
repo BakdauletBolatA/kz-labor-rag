@@ -215,7 +215,11 @@ class EvalRunner:
                     "chunk_id": c.chunk_id,
                     "article": c.article,
                     "articles": list(c.articles),
-                    "clauses": list(c.chunk.clauses),
+                    # Все пары «статья/пункт», а не пункты головной статьи:
+                    # по этому дампу разбирают промахи, и показывать пункты
+                    # одной статьи там, где чанк накрыл несколько, значит
+                    # противоречить собственной clause-метрике.
+                    "clauses": [f"{a}/{cl}" for a, cl in c.chunk.spans],
                     "score": c.score,
                     "preview": c.text[:240],
                 }
