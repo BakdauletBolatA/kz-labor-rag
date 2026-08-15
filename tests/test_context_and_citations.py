@@ -29,9 +29,21 @@ class TestContextLabelling:
     фрагмента нет, а промпт требует ссылаться только на статьи из фрагментов.
     """
 
-    def test_single_article_chunk_keeps_title(self):
+    def test_single_article_chunk_is_labelled_by_number(self):
         out = format_context([chunk("c1", "54", title="Ограничение расторжения")])
-        assert "[Статья 54. Ограничение расторжения]" in out
+        assert "[Статья 54]" in out
+
+    def test_title_is_not_shown_even_when_the_chunk_has_one(self):
+        # Заголовок заполняет только нарезка по статьям. Показывай его подпись —
+        # и смена chunking.strategy меняла бы заодно вход модели, а прирост
+        # метрик пришлось бы делить между двумя изменениями вслепую.
+        out = format_context([chunk("c1", "54", title="Ограничение расторжения")])
+        assert "Ограничение расторжения" not in out
+
+    def test_both_strategies_label_a_single_article_identically(self):
+        by_tokens = format_context([chunk("c1", "54", title="")])
+        by_article = format_context([chunk("c1", "54", title="Ограничение расторжения")])
+        assert by_tokens == by_article
 
     def test_multi_article_chunk_lists_every_article(self):
         out = format_context([chunk("c1", "45", "46", "47", "48", title="Перемещение")])
@@ -41,8 +53,6 @@ class TestContextLabelling:
     def test_multi_article_chunk_does_not_claim_a_single_article(self):
         out = format_context([chunk("c1", "45", "46", "47", "48", title="Перемещение")])
         assert "[Статья 45" not in out
-        # Заголовок принадлежит одной статье из четырёх и так же указывал бы
-        # на неё ложно.
         assert "Перемещение" not in out
 
     def test_boundary_crossing_is_stated_explicitly(self):
