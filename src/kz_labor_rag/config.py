@@ -166,8 +166,15 @@ def load_config(path: str | Path | None = None, *, apply_env: bool = True) -> Co
         raise ConfigError(f"конфиг {path} должен быть словарём верхнего уровня")
 
     if apply_env:
+        # Значение берётся строкой как есть, без разбора YAML. Все шесть
+        # переопределений строковые, а разбор превращал безобидные метки в
+        # другие типы: KZRAG_VERSION=1.0 становился числом, а
+        # KZRAG_VERSION=2026-08-13 — датой, на которой падал уже отпечаток
+        # конфига (date не сериализуется в JSON). То есть попытка пометить
+        # прогон датой роняла прогон, и по сообщению об ошибке связь с
+        # переменной окружения не читалась.
         for env_name, dotted in ENV_OVERRIDES.items():
             if (raw := os.environ.get(env_name)) is not None:
-                _set_dotted(data, dotted, yaml.safe_load(raw))
+                _set_dotted(data, dotted, raw)
 
     return Config(data=data, path=path, root=root)

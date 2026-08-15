@@ -103,3 +103,64 @@ class TestFallbackToPackageLocation:
         config = load_config()
         assert config.path_of("eval.dataset").is_absolute()
         assert config.path_of("eval.dataset").exists()
+
+
+class TestEnvOverridesStayStrings:
+    """Переопределения из окружения берутся как есть, без разбора YAML.
+
+    Все шесть строковые, а разбор менял им тип: метка прогона `1.0`
+    становилась числом, а `2026-08-13` — датой, на которой падал отпечаток
+    конфига, потому что date не сериализуется в JSON.
+    """
+
+    def test_date_like_version_survives(self, fake_repo, monkeypatch):
+        monkeypatch.chdir(fake_repo)
+        monkeypatch.setenv("KZRAG_VERSION", "2026-08-13")
+        config = load_config()
+        assert config.data["version"] == "2026-08-13"
+        assert isinstance(config.data["version"], str)
+
+    def test_fingerprint_computes_on_date_like_version(self, fake_repo, monkeypatch):
+        # Раньше здесь был TypeError: Object of type date is not JSON serializable.
+        monkeypatch.chdir(fake_repo)
+        monkeypatch.setenv("KZRAG_VERSION", "2026-08-13")
+        assert len(load_config().fingerprint) == 16
+
+    def test_number_like_version_is_not_a_float(self, fake_repo, monkeypatch):
+        monkeypatch.chdir(fake_repo)
+        monkeypatch.setenv("KZRAG_VERSION", "1.0")
+        assert load_config().data["version"] == "1.0"
+
+    def test_dsn_is_passed_through_untouched(self, fake_repo, monkeypatch):
+        dsn = "postgresql://kzrag:kzrag@db:5432/kzrag"
+        monkeypatch.chdir(fake_repo)
+        monkeypatch.setenv("KZRAG_DATABASE_URL", dsn)
+        assert load_config().get("vector_store.dsn") == dsn
+
+
+class TestSearchDepthIsOneKnob:
+    """eval.k и retrieval.top_k — одна глубина поиска, названная дважды.
+
+    Прогон ищет с eval.k, а /search, /ask и kzrag-search — с retrieval.top_k.
+    Разъедься они, и метрики описывали бы выдачу, которой не отдаёт ни одна
+    точка входа.
+    """
+
+    def _config(self, eval_k: int, serve_k: int) -> Config:
+        return Config(data={"eval": {"k": eval_k}, "retrieval": {"top_k": serve_k}})
+
+    def test_matching_depths_pass(self):
+        from kz_labor_rag.cli import assert_search_depth_matches
+
+        assert assert_search_depth_matches(self._config(5, 5)) is None
+
+    def test_divergent_depths_are_refused(self):
+        from kz_labor_rag.cli import assert_search_depth_matches
+
+        with pytest.raises(ConfigError, match="одна и та же"):
+            assert_search_depth_matches(self._config(10, 5))
+
+    def test_shipped_config_is_consistent(self):
+        from kz_labor_rag.cli import assert_search_depth_matches
+
+        assert assert_search_depth_matches(load_config()) is None

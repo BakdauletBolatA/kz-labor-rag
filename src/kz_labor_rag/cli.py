@@ -71,8 +71,28 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def assert_search_depth_matches(config) -> None:
+    """eval.k и retrieval.top_k — одна и та же глубина поиска, названная дважды.
+
+    Прогон ищет с ``eval.k``, а ``/search``, ``/ask`` и отладочный CLI — с
+    ``retrieval.top_k``. Разъедься они, и метрики описывали бы глубину, на
+    которой не работает ни одна точка входа: recall@10 при выдаче в пять
+    чанков пользователю. Ошибка тихая — обе цифры выглядят осмысленно
+    по отдельности.
+    """
+    eval_k = int(config.get("eval.k"))
+    serve_k = int(config.get("retrieval.top_k"))
+    if eval_k != serve_k:
+        raise ConfigError(
+            f"eval.k = {eval_k}, а retrieval.top_k = {serve_k}. Это одна и та же "
+            "глубина поиска: прогон измерял бы выдачу, которой не отдают ни API, "
+            "ни kzrag-search. Приведите значения к одному."
+        )
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    assert_search_depth_matches(config)
     dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
 
     # Отсутствие ключа API отключает генерацию и судью с предупреждением
