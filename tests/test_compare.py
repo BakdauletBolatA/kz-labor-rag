@@ -181,3 +181,81 @@ class TestCli:
         b.write_text(json.dumps(run("iter-1", recall=0.6)), encoding="utf-8")
         assert eval_main(["compare", str(a), str(b)]) == 0
         assert "+0.200" in capsys.readouterr().out
+
+
+class TestRealRunResultsAreComparable:
+    """Сквозная проверка: что пишет прогон, то читает сравнение.
+
+    Обе стороны до сих пор проверялись по отдельности — сравнение на
+    рукописных JSON, прогон на форме результата. Разъедься они именем ключа
+    или типом значения, узналось бы это в худший момент: после первого
+    baseline, при попытке поставить рядом первую итерацию.
+    """
+
+    @pytest.fixture
+    def dataset(self):
+        from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
+
+        return EvalDataset(
+            questions=tuple(
+                EvalQuestion.from_dict(
+                    {
+                        "id": f"syn_{i:03d}",
+                        "question": f"вопрос {i}",
+                        "lang": "ru",
+                        "origin": "synthetic",
+                        "required_articles": ["54"],
+                        "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
+                        "reviewed_by_human": True,
+                    }
+                )
+                for i in range(1, 4)
+            )
+        )
+
+    def _run(self, config, dataset, *, found: bool):
+        from conftest import FakeRetriever, ranked
+
+        from kz_labor_rag.eval.runner import EvalRunner
+
+        hits = ranked("54", "1") if found else ranked("1", "2")
+        retriever = FakeRetriever({q.question: hits for q in dataset})
+        return EvalRunner(config, retriever).run(dataset, enforce_gate=False)
+
+    def test_result_carries_every_comparability_key(self, config, dataset):
+        result = self._run(config, dataset, found=True)
+        block = result["comparability"]
+        assert set(COMPARABILITY_KEYS) <= set(block), "прогон не пишет ключ, который ждёт compare"
+
+    def test_two_real_runs_render_a_table(self, config, dataset, tmp_path, capsys):
+        from kz_labor_rag.config import Config
+        from kz_labor_rag.eval.runner import save_result
+
+        before = self._run(config, dataset, found=False)
+        after = self._run(Config(data={**config.data, "version": "iter-1"}), dataset, found=True)
+
+        a = save_result(before, tmp_path)
+        b = save_result(after, tmp_path)
+
+        assert eval_main(["compare", str(a), str(b)]) == 0
+        out = capsys.readouterr().out
+        assert "recall@5" in out
+        assert "+1.000" in out
+
+    def test_changing_eval_k_refuses_real_runs(self, config, dataset, tmp_path, capsys):
+        """Ключ k доходит от конфига до отказа сравнения, а не только до JSON."""
+        from kz_labor_rag.config import Config
+        from kz_labor_rag.eval.runner import save_result
+
+        wider = Config(
+            data={
+                **config.data,
+                "version": "iter-1",
+                "eval": {**config.data["eval"], "k": 10},
+            }
+        )
+        a = save_result(self._run(config, dataset, found=True), tmp_path)
+        b = save_result(self._run(wider, dataset, found=True), tmp_path)
+
+        assert eval_main(["compare", str(a), str(b)]) == 1
+        assert "окне разного размера" in capsys.readouterr().err
