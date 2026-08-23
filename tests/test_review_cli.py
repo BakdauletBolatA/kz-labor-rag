@@ -55,6 +55,38 @@ class TestStatus:
         assert "ждут ревью         : 2" in out
         assert "черновых слотов    : 1" in out
 
+    def test_shows_breakdown_by_slice_and_topic(self, tmp_path, capsys):
+        """Разбивка нужна, чтобы ревью было чем спланировать.
+
+        57 вопросов за присест не отревьюировать, а список id обрывается на
+        двадцати. REVIEW.md сгруппирован по темам, поэтому тема — естественная
+        порция работы, и счётчик по темам ложится на неё ровно.
+        """
+        path = tmp_path / "many.jsonl"
+        rows = [
+            {"id": f"syn_{i:03d}", **BASE, "tags": ["увольнение" if i % 2 else "отпуск"]}
+            for i in range(1, 6)
+        ] + [{"id": "kk_001", **BASE, "lang": "kk", "tags": ["отпуск"]}]
+        path.write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8"
+        )
+
+        assert run(path, "status") == 1
+        out = capsys.readouterr().out
+        assert "Осталось по срезам:" in out
+        assert "ru     5" in out
+        assert "kk     1" in out
+        assert "Осталось по темам:" in out
+        assert "отпуск" in out
+
+    def test_no_breakdown_when_nothing_pending(self, dataset_file, capsys):
+        run(dataset_file, "mark", "--all")
+        capsys.readouterr()
+        assert run(dataset_file, "status") == 0
+        out = capsys.readouterr().out
+        assert "Осталось по срезам:" not in out
+        assert "отревьюированы" in out
+
     def test_exits_zero_when_everything_reviewed(self, dataset_file, capsys):
         run(dataset_file, "mark", "--all")
         assert run(dataset_file, "status") == 0

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections import Counter
 from dataclasses import replace
 
 from kz_labor_rag.config import ConfigError, load_config
@@ -48,6 +49,20 @@ def cmd_status(args) -> int:
     print(f"  черновых слотов    : {dataset.stats['draft_slots']}")
 
     if pending:
+        # Разбивка по срезам и темам: 57 вопросов за один присест не
+        # отревьюировать, а REVIEW.md сгруппирован по темам — значит, тема и
+        # есть естественная порция работы. Без разбивки виден только обрезанный
+        # список id, по которому непонятно, сколько ещё и чего именно осталось.
+        by_lang = Counter(q.lang for q in pending)
+        print("\nОсталось по срезам:")
+        for lang, count in sorted(by_lang.items()):
+            print(f"  {lang:<6} {count}")
+
+        if by_tag := Counter(tag for q in pending for tag in q.tags):
+            print("\nОсталось по темам:")
+            for tag, count in sorted(by_tag.items(), key=lambda kv: (-kv[1], kv[0])):
+                print(f"  {tag:<22} {count}")
+
         shown = ", ".join(q.id for q in pending[:20])
         tail = f" и ещё {len(pending) - 20}" if len(pending) > 20 else ""
         print(f"\nНе отревьюированы: {shown}{tail}")
