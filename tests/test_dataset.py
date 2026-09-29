@@ -339,10 +339,10 @@ class TestShippedDataset:
     def test_composition(self, dataset):
         s = dataset.stats
         assert s["synthetic"] == 60
-        assert s["ru"] == 45
+        assert s["ru"] == 60
         assert s["kk"] == 15
-        assert s["real"] == 0
-        assert s["draft_slots"] == 15
+        assert s["real"] == 15
+        assert s["draft_slots"] == 0
 
     def test_kazakh_slice_is_complete(self, dataset):
         kk = dataset.slice("kk")
@@ -365,10 +365,18 @@ class TestShippedDataset:
                     "проверенной цитатой русского среза"
                 )
 
-    def test_real_slots_are_reserved_but_empty(self, dataset):
-        drafts = [x for x in dataset if x.is_draft]
-        assert [x.id for x in drafts] == [f"real_{i:03d}" for i in range(1, 16)]
-        assert all(x.origin == "real" and not x.question for x in drafts)
+    def test_real_slots_are_filled_and_sourced(self, dataset):
+        # Раньше real_001..015 были зарезервированными пустыми черновиками —
+        # регрессия защищала именно то, что они остаются пустыми до ручного
+        # наполнения. Слоты заполнены (см. evals/datasets/REVIEW.md), поэтому
+        # инвариант теперь обратный: ни один не должен откатиться в черновик,
+        # и у каждого обязана быть ссылка на реальный тред — это то, что
+        # отличает 'real' от 'synthetic' по схеме (dataset.py:56-57).
+        real_ids = [f"real_{i:03d}" for i in range(1, 16)]
+        real_qs = {x.id: x for x in dataset if x.id in real_ids}
+        assert set(real_qs) == set(real_ids)
+        assert all(not q.is_draft for q in real_qs.values())
+        assert all(q.question and q.source_url for q in real_qs.values())
 
     def test_topic_limit_respected(self, dataset):
         # Лимит считается внутри языка: казахский срез намеренно повторяет темы
