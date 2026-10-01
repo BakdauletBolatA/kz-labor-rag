@@ -85,3 +85,22 @@ class TestLongEnumerations:
         quote = extract_evidence(text, "Основания:", max_len=100)
         assert quote in text
         assert not quote.endswith(" ")
+
+
+class TestTruncationStaysInsideTheClause:
+    """Обрезка длинной цитаты не должна перетекать в следующий пункт.
+
+    syn_043: пункт 2 ст. 51 длиннее 600 символов, обрезка от якоря захватывала
+    перевод строки и обрывок пункта 3 — «Датой истечения срока трудового
+    договора, заключенного на». Цитата при этом «доказывала» пункт, к вопросу
+    не относящийся.
+    """
+
+    def test_truncated_quote_does_not_cross_a_line_break(self):
+        # Как в syn_043: длинное предложение без точки внутри, якорь ближе к
+        # концу пункта, чем max_len, — окно от якоря дотягивается до соседа.
+        clause = "Вступление " + "длинная норма " * 50 + "якорь нормы " + "хвост " * 20 + "конец."
+        text = clause + "\nДатой истечения срока трудового договора является день."
+        quote = extract_evidence(text, "якорь нормы", max_len=600)
+        assert "\n" not in quote
+        assert "Датой истечения" not in quote

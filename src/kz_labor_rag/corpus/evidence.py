@@ -54,6 +54,9 @@ def extract_evidence(article_text: str, anchor: str, *, max_len: int = MAX_QUOTE
     if len(fragment) > max_len:
         # Перечни в кодексе бывают на тысячу символов. Режем по границе слова,
         # начиная от самого якоря: он и есть то, что доказывает разметку.
-        cut = article_text[pos : pos + max_len]
+        # Перевод строки — граница пункта: обрезка не должна уносить в цитату
+        # обрывок соседнего пункта.
+        cut = article_text[pos : pos + max_len].split("\n", 1)[0]
         fragment = cut[: cut.rfind(" ")].strip() if " " in cut else cut.strip()
     return fragment
+
