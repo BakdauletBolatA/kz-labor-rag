@@ -55,11 +55,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # /ask без скачанной модели генерации отвечал бы ошибкой.
+      ollama-pull:
+        condition: service_completed_successfully
     environment:
       KZRAG_DATABASE_URL: postgresql://${POSTGRES_USER:-kzrag}:${POSTGRES_PASSWORD:-kzrag}@db:5432/${POSTGRES_DB:-kzrag}
       KZRAG_CONFIG: ${KZRAG_CONFIG:-config/default.yaml}
-      # Ключ нужен только для /ask и для faithfulness. Без него поиск,
-      # recall@5 и MRR работают полностью.
+      # Ключи нужны только LLM-судье в evals/answer_eval.py; сервис работает без них.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       KZRAG_OLLAMA_URL: http://ollama:11434
