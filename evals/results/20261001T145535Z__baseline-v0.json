@@ -1,0 +1,372 @@
+{
+  "schema_version": "1.0",
+  "metrics_version": "3.0",
+  "timestamp": "2026-10-01T14:55:35.551593+00:00",
+  "version": "baseline-v0",
+  "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+  "git": {
+    "commit": "3e686cae98756a15f783fd23cee2380c5d8f5327",
+    "branch": "claude/claude-rc-334546",
+    "dirty": false
+  },
+  "config_fingerprint": "5c2ed8042298bbc1",
+  "config": {
+    "version": "baseline-v0",
+    "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+    "corpus": {
+      "raw_html": "data/raw/adilet_K1500000414_rus.html",
+      "checksum_file": "data/raw/CHECKSUM",
+      "strip_amendment_notes": true
+    },
+    "chunking": {
+      "strategy": "fixed_tokens",
+      "chunk_size_tokens": 512,
+      "chunk_overlap_tokens": 0,
+      "tokenizer": "intfloat/multilingual-e5-base",
+      "prepend_article_header": false
+    },
+    "embeddings": {
+      "provider": "huggingface",
+      "model": "intfloat/multilingual-e5-base",
+      "dimensions": 768,
+      "query_prefix": "query: ",
+      "passage_prefix": "passage: ",
+      "normalize": true,
+      "max_sequence_length": 512,
+      "batch_size": 32,
+      "device": "cpu",
+      "cache": {
+        "enabled": true,
+        "dir": ".cache/embeddings"
+      }
+    },
+    "vector_store": {
+      "backend": "pgvector",
+      "table": "chunks",
+      "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+      "distance": "cosine",
+      "index": "none"
+    },
+    "retrieval": {
+      "implementation": "dense",
+      "top_k": 5,
+      "candidate_k": 5,
+      "hybrid": {
+        "enabled": false,
+        "bm25_weight": 0.0,
+        "dense_weight": 1.0
+      },
+      "reranker": {
+        "enabled": false,
+        "model": null
+      },
+      "query_expansion": {
+        "enabled": false
+      }
+    },
+    "generation": {
+      "enabled": true,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "prompt_id": "answer_ru",
+      "prompt_version": "v1",
+      "max_tokens": 1024,
+      "temperature": 0.0
+    },
+    "judge": {
+      "enabled": true,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "prompt_id": "faithfulness_ru",
+      "prompt_version": "v1",
+      "max_tokens": 1024,
+      "temperature": 0.0
+    },
+    "eval": {
+      "dataset": "evals/datasets/kz_labor_v1.jsonl",
+      "results_dir": "evals/results",
+      "k": 5,
+      "languages": [
+        "ru",
+        "kk"
+      ],
+      "primary_language": "ru",
+      "repeats": 1,
+      "seed": 20260811
+    }
+  },
+  "comparability": {
+    "metrics_version": "3.0",
+    "k": 5,
+    "context_format": "1e99e76d06a7",
+    "chunking_signature": "4d4ae0162b8c9a49",
+    "embeddings_model": "intfloat/multilingual-e5-base",
+    "dataset_sha256": "feb9e3a72e8de16bb4cd2efef70459938a4c8c24585ffeea6b705386509734a7",
+    "generator_prompt": null,
+    "judge_prompt": null
+  },
+  "index": {
+    "chunking_signature": "4d4ae0162b8c9a49",
+    "embeddings_model": "intfloat/multilingual-e5-base",
+    "corpus_edition_date": "07.08.2026",
+    "parser_version": "1.0",
+    "chunks": 143,
+    "max_encoded_tokens": 512
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "macOS-15.7.9-arm64-arm-64bit"
+  },
+  "dataset": {
+    "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/datasets/kz_labor_v1.jsonl",
+    "sha256": "feb9e3a72e8de16bb4cd2efef70459938a4c8c24585ffeea6b705386509734a7",
+    "schema_version": "3.0",
+    "stats": {
+      "total": 75,
+      "ru": 60,
+      "kk": 15,
+      "real": 15,
+      "synthetic": 60,
+      "with_preferred_clause": 69,
+      "reviewed_by_human": 1,
+      "draft_slots": 0
+    },
+    "evaluated": {
+      "n": 1,
+      "real": 0,
+      "synthetic": 1,
+      "skipped_unverified": 74
+    }
+  },
+  "components": {
+    "retriever": {
+      "version": "baseline-v0",
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "embeddings_model": "intfloat/multilingual-e5-base",
+      "corpus_edition_date": "07.08.2026",
+      "parser_version": "1.0",
+      "chunks": 143,
+      "max_encoded_tokens": 512
+    },
+    "generator": {
+      "backend": "disabled",
+      "reason": "ANTHROPIC_API_KEY не задан"
+    },
+    "judge": {
+      "backend": "disabled",
+      "reason": "генератор отключён, судить нечего"
+    }
+  },
+  "aggregates": {
+    "primary": {
+      "n": 1,
+      "recall@5": 1.0,
+      "strict_hit@5": 1.0,
+      "mrr": 0.5,
+      "article_recall@5": 1.0,
+      "citation_validity": null,
+      "faithfulness": null,
+      "n_judged": 0,
+      "retrieval_failures": []
+    },
+    "by_language": {
+      "ru": {
+        "n": 1,
+        "recall@5": 1.0,
+        "strict_hit@5": 1.0,
+        "mrr": 0.5,
+        "article_recall@5": 1.0,
+        "citation_validity": null,
+        "faithfulness": null,
+        "n_judged": 0,
+        "retrieval_failures": []
+      },
+      "kk": {
+        "n": 0
+      }
+    },
+    "by_origin": {
+      "real": {
+        "n": 0
+      },
+      "synthetic": {
+        "n": 1,
+        "recall@5": 1.0,
+        "strict_hit@5": 1.0,
+        "mrr": 0.5,
+        "article_recall@5": 1.0,
+        "citation_validity": null,
+        "faithfulness": null,
+        "n_judged": 0,
+        "retrieval_failures": []
+      }
+    }
+  },
+  "timing": {
+    "wall_seconds": 11.82
+  },
+  "questions": [
+    {
+      "id": "syn_001",
+      "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+      "lang": "ru",
+      "origin": "synthetic",
+      "required_articles": [
+        "54"
+      ],
+      "acceptable_articles": [
+        "52"
+      ],
+      "required_clauses": [
+        "ст. 54 п. 1"
+      ],
+      "retrieved": [
+        {
+          "rank": 1,
+          "chunk_id": "c00036",
+          "article": "46",
+          "articles": [
+            "46",
+            "47",
+            "48"
+          ],
+          "clauses": [
+            "46/2",
+            "46/3",
+            "47/",
+            "48/1",
+            "48/2",
+            "48/3"
+          ],
+          "score": 0.8227672086496839,
+          "preview": ", произошедшем по причинам, указанным в пункте 1 настоящей статьи, не позднее чем за пятнадцать календарных дней, если трудовым, коллективным договорами не предусмотрен более длительный срок уведомления.\nВ случае письменного отказа работник"
+        },
+        {
+          "rank": 2,
+          "chunk_id": "c00043",
+          "article": "53",
+          "articles": [
+            "53",
+            "54",
+            "55",
+            "56"
+          ],
+          "clauses": [
+            "53/12",
+            "54/1",
+            "54/2",
+            "55/1",
+            "55/1-1",
+            "55/2",
+            "56/1",
+            "56/2",
+            "56/3"
+          ],
+          "score": 0.8137575387954712,
+          "preview": ", 10) и 12) части первой статьи 35 или статьи 36 Уголовно-процессуального кодекса Республики Казахстан.\nНе допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности и пребывания работника в "
+        },
+        {
+          "rank": 3,
+          "chunk_id": "c00058",
+          "article": "85",
+          "articles": [
+            "85",
+            "86",
+            "87"
+          ],
+          "clauses": [
+            "85/1",
+            "85/2",
+            "85/3",
+            "85/4",
+            "86/",
+            "87/1",
+            "87/2",
+            "87/3",
+            "87/4",
+            "87/5"
+          ],
+          "score": 0.8122525438961392,
+          "preview": "е работников и издание акта работодателя не требуются. Работа в выходные и праздничные дни допускается с письменного согласия работника или по его просьбе на основании акта работодателя, за исключением случаев, предусмотренных статьей 86 на"
+        },
+        {
+          "rank": 4,
+          "chunk_id": "c00038",
+          "article": "51",
+          "articles": [
+            "51",
+            "52"
+          ],
+          "clauses": [
+            "51/2",
+            "51/3",
+            "51/4",
+            "52/1"
+          ],
+          "score": 0.811718236701595,
+          "preview": "ку о беременности сроком двенадцать и более недель, а также работник, имеющий ребенка в возрасте до трех лет, усыновивший (удочеривший) ребенка и пожелавший использовать свое право на отпуск без сохранения заработной платы по уходу за ребен"
+        },
+        {
+          "rank": 5,
+          "chunk_id": "c00035",
+          "article": "43",
+          "articles": [
+            "43",
+            "44",
+            "45",
+            "46"
+          ],
+          "clauses": [
+            "43/1",
+            "43/2",
+            "44/",
+            "45/1",
+            "45/2",
+            "46/1",
+            "46/2"
+          ],
+          "score": 0.8112935423851013,
+          "preview": "ным договором не предусмотрены иные условия, улучшающие положение работника.\nВ случае письменного отказа работника от временного перевода на другую не противопоказанную по состоянию здоровья работу либо при наличии акта, удостоверяющего отк"
+        }
+      ],
+      "metrics": {
+        "recall_at_k": 1.0,
+        "strict_hit_at_k": 1.0,
+        "reciprocal_rank": 0.5,
+        "article_recall_at_k": 1.0,
+        "citation_validity": null,
+        "faithfulness": null,
+        "retrieved_articles": [
+          "46",
+          "47",
+          "48",
+          "53",
+          "54",
+          "55",
+          "56",
+          "85",
+          "86",
+          "87",
+          "51",
+          "52",
+          "43",
+          "44",
+          "45"
+        ]
+      },
+      "retrieval_failure": false,
+      "latency_ms": {
+        "retrieval": 11818.54183395626,
+        "generation": 0.00666698906570673
+      },
+      "preferred_clause": "ст. 54 п. 1",
+      "generation": {
+        "answer": "",
+        "cited_articles": [],
+        "error": "ANTHROPIC_API_KEY не задан",
+        "input_tokens": null,
+        "output_tokens": null
+      }
+    }
+  ]
+}
