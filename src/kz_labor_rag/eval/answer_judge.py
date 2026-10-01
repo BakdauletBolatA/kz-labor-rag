@@ -96,15 +96,16 @@ class ClaudeAnswerJudge:
         self,
         question: str,
         reference: str,
-        context: Sequence[RetrievedChunk],
+        context: Sequence[RetrievedChunk] | str,
         answer: str,
     ) -> AnswerVerdict:
+        """``context`` — фрагменты или уже собранный ``format_context`` текст."""
         import anthropic
 
         prompt = self._prompt.text.format(
             question=question,
             reference=reference,
-            context=format_context(context),
+            context=context if isinstance(context, str) else format_context(context),
             answer=answer,
         )
         try:
