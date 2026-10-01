@@ -77,6 +77,13 @@ class TestStream:
         stream = build_stream([article("54", [("1", "текст пункта")])], prepend_article_header=True)
         assert "Статья 54. Заголовок" in stream.text
 
+    def test_header_alone_covers_no_clause(self):
+        # У ст. 83 единственный пункт без номера, то есть с номером "". Заголовок
+        # тоже помечался пунктом "", и окно с одним заголовком «покрывало» пункт.
+        stream = build_stream([article("83", [("", "текст пункта")])], prepend_article_header=True)
+        header_end = stream.text.index("текст пункта")
+        assert stream.spans_in(0, header_end) == ()
+
     def test_segments_map_back_to_clauses(self):
         stream = build_stream(
             [article("54", [("1", "первый пункт"), ("2", "второй пункт")])],

@@ -95,7 +95,10 @@ class Segment:
     """Кусок потока, принадлежащий одному пункту одной статьи."""
 
     article: str
-    clause: str
+    # None — заголовок статьи: он относится к статье, но не к пункту. Пустая
+    # строка занята пунктом без номера (ст. 83, 88, 160), и заголовок с ней
+    # не должен совпадать.
+    clause: str | None
     start: int
     end: int
 
@@ -118,7 +121,7 @@ class CorpusStream:
         for seg in self.segments:
             if seg.start >= end:
                 break
-            if seg.end <= start:
+            if seg.end <= start or seg.clause is None:
                 continue
             key = (seg.article, seg.clause)
             if key not in seen:
@@ -143,8 +146,7 @@ def build_stream(articles: Iterable[Article], *, prepend_article_header: bool) -
         if prepend_article_header:
             header = article.heading + "\n"
             parts.append(header)
-            # Заголовок относится к статье целиком, поэтому пункт пустой.
-            segments.append(Segment(article.number, "", cursor, cursor + len(header)))
+            segments.append(Segment(article.number, None, cursor, cursor + len(header)))
             cursor += len(header)
 
         for clause in article.clauses:
