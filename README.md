@@ -170,11 +170,11 @@ How to read it:
 Script: [`evals/answer_eval.py`](evals/answer_eval.py).
 
 <!-- BEGIN answer_table -->
-Cell: `clause+header/e5-base/hybrid`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 3 answerable, 0 unanswerable. Judge not run: ANTHROPIC_API_KEY не задан — судья не запускался, его метрики не измерены.
+Cell: `clause+header/e5-base/hybrid`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 3 answerable, 0 unanswerable. Judge not run: no API key for `answer_judge.provider` = openai.
 
 | answer_rate | citation_hit | citation_validity | withheld | correct_refusal | correctness | groundedness | n_judged | generation p50, s |
 |---|---|---|---|---|---|---|---|---|
-| 1.000 | 0.667 | 1.000 | 0.000 | — | — | — | 0 | 163.011 |
+| 1.000 | 0.667 | 1.000 | 0.000 | — | — | — | 0 | 130.261 |
 <!-- END answer_table -->
 
 - `citation_hit`: at least one cited clause is a required one.
