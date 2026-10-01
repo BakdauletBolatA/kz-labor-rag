@@ -48,3 +48,9 @@ def test_dataset_summary_counts_verified_separately():
     assert "2 answerable, 1 unanswerable" in text
     assert "**1 verified by hand**" in text
     assert "| condition | 2 | 1 |" in text
+
+
+def test_empty_block_is_filled():
+    # Свежий README: маркеры стоят вплотную, содержимого ещё нет.
+    out = replace_block("<!-- BEGIN t -->\n<!-- END t -->\n", "t", "| a |")
+    assert out == "<!-- BEGIN t -->\n| a |\n<!-- END t -->\n"

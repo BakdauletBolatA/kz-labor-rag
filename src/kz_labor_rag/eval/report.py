@@ -19,12 +19,13 @@ class MissingBlockError(ValueError):
 
 
 def replace_block(text: str, name: str, content: str) -> str:
+    # Содержимого между маркерами может и не быть: в свежем README они стоят вплотную.
     pattern = re.compile(
-        rf"(<!-- BEGIN {re.escape(name)} -->\n).*?(\n<!-- END {re.escape(name)} -->)", re.S
+        rf"(<!-- BEGIN {re.escape(name)} -->\n)(?:.*?\n)?(<!-- END {re.escape(name)} -->)", re.S
     )
     if not pattern.search(text):
         raise MissingBlockError(f"в README нет блока {name}")
-    return pattern.sub(lambda m: m.group(1) + content.strip() + m.group(2), text, count=1)
+    return pattern.sub(lambda m: f"{m.group(1)}{content.strip()}\n{m.group(2)}", text, count=1)
 
 
 def strip_generated_comment(table: str) -> str:
