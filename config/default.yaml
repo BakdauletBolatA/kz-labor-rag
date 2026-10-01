@@ -110,12 +110,17 @@ retrieval:
 
 generation:
   enabled: true
-  provider: anthropic
-  model: claude-sonnet-5
+  # ollama — локальная модель, ключ не нужен; anthropic — по ANTHROPIC_API_KEY.
+  provider: ollama
+  model: qwen2.5:7b-instruct
+  # Переопределяется KZRAG_OLLAMA_URL: в Docker это http://ollama:11434.
+  base_url: http://localhost:11436
   prompt_id: answer_ru
-  prompt_version: v1
-  max_tokens: 1024
+  prompt_version: v2
+  max_tokens: 512
   temperature: 0.0
+  # Окно контекста модели: промпт плюс пять фрагментов по 512 токенов e5.
+  num_ctx: 4096
 
 judge:
   enabled: true

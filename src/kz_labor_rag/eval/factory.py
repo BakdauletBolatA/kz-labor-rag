@@ -13,7 +13,12 @@ import logging
 import os
 
 from kz_labor_rag.config import Config
-from kz_labor_rag.eval.generator import AnthropicGenerator, DisabledGenerator, Generator
+from kz_labor_rag.eval.generator import (
+    AnthropicGenerator,
+    DisabledGenerator,
+    Generator,
+    OllamaGenerator,
+)
 from kz_labor_rag.eval.judge import AnthropicJudge, DisabledJudge, Judge
 
 log = logging.getLogger(__name__)
@@ -38,6 +43,17 @@ def build_generator(config: Config) -> Generator:
         return DisabledGenerator("генерация отключена в конфиге")
 
     provider = config.get("generation.provider")
+    if provider == "ollama":
+        return OllamaGenerator(
+            model=config.get("generation.model"),
+            base_url=config.get("generation.base_url"),
+            prompt_id=config.get("generation.prompt_id"),
+            prompt_version=config.get("generation.prompt_version"),
+            max_tokens=int(config.get("generation.max_tokens")),
+            temperature=float(config.get("generation.temperature")),
+            num_ctx=int(config.get("generation.num_ctx")),
+            seed=int(config.get("eval.seed")),
+        )
     if provider != "anthropic":
         return DisabledGenerator(f"провайдер генерации '{provider}' пока не поддержан")
 

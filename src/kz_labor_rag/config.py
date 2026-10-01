@@ -60,6 +60,8 @@ ENV_OVERRIDES: dict[str, str] = {
     "KZRAG_EMBEDDINGS_MODEL": "embeddings.model",
     "KZRAG_EVAL_DATASET": "eval.dataset",
     "KZRAG_DEVICE": "embeddings.device",
+    # В Docker Ollama живёт в соседнем контейнере, локально — на хосте.
+    "KZRAG_OLLAMA_URL": "generation.base_url",
 }
 
 
@@ -166,7 +168,7 @@ def load_config(path: str | Path | None = None, *, apply_env: bool = True) -> Co
         raise ConfigError(f"конфиг {path} должен быть словарём верхнего уровня")
 
     if apply_env:
-        # Значение берётся строкой как есть, без разбора YAML. Все шесть
+        # Значение берётся строкой как есть, без разбора YAML. Все
         # переопределений строковые, а разбор превращал безобидные метки в
         # другие типы: KZRAG_VERSION=1.0 становился числом, а
         # KZRAG_VERSION=2026-08-13 — датой, на которой падал уже отпечаток
