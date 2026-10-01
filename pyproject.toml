@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "selectolax>=0.3.21",
     "numpy>=1.26",
+    "pymorphy3>=2.0",
+    "pymorphy3-dicts-ru>=2.4",
+    "snowballstemmer>=2.2",
 ]
 
 [project.optional-dependencies]

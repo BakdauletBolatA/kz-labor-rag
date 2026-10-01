@@ -321,6 +321,19 @@ class PgVectorStore:
             for i, row in enumerate(rows)
         ]
 
+    def all_chunks(self) -> list[Chunk]:
+        """Все чанки индекса. Из них строится BM25 — по тем же текстам, что и dense."""
+        conn = self.connect()
+        rows = conn.execute(
+            f"""
+            SELECT chunk_id, text, articles, spans, article_title, section, chapter,
+                   char_start, char_end
+            FROM {self.params.table}
+            ORDER BY chunk_id
+            """
+        ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
     def by_article(self, article: str) -> list[Chunk]:
         """Все чанки, в которые попал текст статьи. Нужно отладочному CLI."""
         conn = self.connect()
