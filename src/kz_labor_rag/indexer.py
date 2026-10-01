@@ -176,7 +176,16 @@ def build_index(
     rebuild: bool = False,
     encoder: Encoder | None = None,
     store: PgVectorStore | None = None,
+    budget_config: Config | None = None,
 ) -> IndexReport:
+    """Построить индекс.
+
+    ``budget_config`` — конфиг, чья модель задаёт границы чанков. Нужен для
+    сравнения моделей эмбеддингов: окно e5 (512 токенов с префиксом) режет
+    корпус иначе, чем окно другой модели, и без общей нарезки разница в recall
+    смешала бы эффект модели с эффектом нарезки. Чанки всё равно обязаны
+    влезать и в окно своей модели — это проверяется отдельно.
+    """
     import time
 
     started = time.perf_counter()
@@ -216,7 +225,7 @@ def build_index(
 
     tokenizer = build_tokenizer(config.get("chunking.tokenizer"))
     budget = make_budget(config, tokenizer)
-    chunks = build_chunks(code, tokenizer, params, budget)
+    chunks = build_chunks(code, tokenizer, params, make_budget(budget_config or config, tokenizer))
     log.info("Получено чанков: %d (стратегия %s)", len(chunks), params.strategy)
 
     # Ужимание окна уже учло оверхед, но проверка остаётся: она защищает от
