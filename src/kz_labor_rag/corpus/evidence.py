@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 MAX_QUOTE_LEN = 600
 
@@ -60,3 +61,26 @@ def extract_evidence(article_text: str, anchor: str, *, max_len: int = MAX_QUOTE
         fragment = cut[: cut.rfind(" ")].strip() if " " in cut else cut.strip()
     return fragment
 
+
+def clauses_of_quote(clauses: Sequence[tuple[str, str]], quote: str) -> list[str]:
+    """Номера пунктов, текст которых накрывает цитата.
+
+    ``clauses`` — пары (номер, текст) в порядке статьи; склеиваются через
+    перевод строки ровно так же, как парсер собирает ``Article.text``. Цитата
+    ищется с точностью до пробельных символов: в рукописных записях перенос
+    строки мог превратиться в пробел.
+    """
+    text = "\n".join(body for _, body in clauses)
+    pattern = r"\s+".join(re.escape(word) for word in quote.split())
+    match = re.search(pattern, text) if pattern else None
+    if match is None:
+        raise ValueError(f"цитата не найдена в тексте пунктов: {quote[:80]!r}")
+
+    found: list[str] = []
+    cursor = 0
+    for number, body in clauses:
+        start, end = cursor, cursor + len(body)
+        if start < match.end() and match.start() < end:
+            found.append(number)
+        cursor = end + 1
+    return found

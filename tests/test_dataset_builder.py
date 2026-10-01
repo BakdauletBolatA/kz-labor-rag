@@ -36,6 +36,7 @@ REAL_ROW = {
     "origin": "real",
     "source_url": "https://example.kz/thread/1",
     "required_articles": ["62"],
+    "required_clauses": [{"article": "62", "clause": "1"}],
     "acceptable_articles": [],
     "preferred_clause": None,
     "tags": ["увольнение"],
@@ -51,6 +52,7 @@ KK_ROW = {
     "origin": "synthetic",
     "source_url": None,
     "required_articles": ["88"],
+    "required_clauses": [{"article": "88", "clause": ""}],
     "acceptable_articles": [],
     "preferred_clause": None,
     "tags": ["отпуск"],
@@ -66,6 +68,7 @@ SYNTHETIC_ROW = {
     "origin": "synthetic",
     "source_url": None,
     "required_articles": ["54"],
+    "required_clauses": [{"article": "54", "clause": "1"}],
     "acceptable_articles": [],
     "preferred_clause": None,
     "tags": ["увольнение"],
@@ -278,7 +281,9 @@ class TestFullRebuild:
     def test_broken_authored_row_stops_the_build(self, build, capsys):
         assert builder.main() == 0
         rows = self.read(build)
-        rows["real_001"] = {**REAL_ROW, "required_articles": [], "evidence": []}
+        rows["real_001"] = {
+            **REAL_ROW, "required_articles": [], "required_clauses": [], "evidence": []
+        }
         write_jsonl(build, list(rows.values()))
 
         assert builder.main() == 1

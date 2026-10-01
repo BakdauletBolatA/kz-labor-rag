@@ -20,7 +20,7 @@ Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
 Status = Literal["ready", "draft"]
 
-DATASET_SCHEMA_VERSION = "2.0"
+DATASET_SCHEMA_VERSION = "3.0"
 
 
 class DatasetError(ValueError):
@@ -53,6 +53,10 @@ class EvalQuestion:
     Одна цитата на многосоставный вопрос молча скрывала неполноту разметки,
     поэтому схема требует цитату к КАЖДОЙ обязательной статье.
 
+    ``required_clauses`` — пункты, из которых собирается ответ. По ним считаются
+    recall@k и MRR. Это не ручная разметка поверх цитат, а их следствие: пункт,
+    в котором лежит процитированный фрагмент.
+
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
 
@@ -69,6 +73,7 @@ class EvalQuestion:
     origin: Origin
     required_articles: tuple[str, ...]
     evidence: tuple[EvidenceQuote, ...]
+    required_clauses: tuple[ClauseRef, ...] = ()
     acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
@@ -136,6 +141,19 @@ class EvalQuestion:
                     "которых нет в required_articles"
                 )
 
+        required_clauses = tuple(
+            ClauseRef(article=c["article"], clause=str(c["clause"]))
+            for c in (raw.get("required_clauses") or ())
+        )
+        if status == "ready":
+            if not required_clauses:
+                fail("обязательное поле 'required_clauses' пусто или отсутствует")
+            if stray := [str(c) for c in required_clauses if c.article not in required]:
+                fail(f"пункты {stray} относятся к статьям вне required_articles")
+            with_clause = {c.article for c in required_clauses}
+            if bare := [a for a in required if a not in with_clause]:
+                fail(f"у обязательных статей {bare} нет ни одного пункта в required_clauses")
+
         preferred = None
         if pc := raw.get("preferred_clause"):
             preferred = ClauseRef(
@@ -146,6 +164,8 @@ class EvalQuestion:
                     f"preferred_clause указывает на статью {preferred.article}, "
                     "которой нет в required_articles"
                 )
+            if required_clauses and preferred not in required_clauses:
+                fail(f"preferred_clause {preferred} не входит в required_clauses")
 
         return cls(
             id=str(raw["id"]),
@@ -154,6 +174,7 @@ class EvalQuestion:
             origin=raw["origin"],
             required_articles=required,
             evidence=evidence,
+            required_clauses=required_clauses,
             acceptable_articles=acceptable,
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
@@ -181,6 +202,9 @@ class EvalQuestion:
                     "clause": self.preferred_clause.clause,
                 }
             ),
+            "required_clauses": [
+                {"article": c.article, "clause": c.clause} for c in self.required_clauses
+            ],
             "tags": list(self.tags),
             "lang": self.lang,
             "evidence": [{"article": e.article, "quote": e.quote} for e in self.evidence],
@@ -363,9 +387,11 @@ def validate_against_corpus(
         # поиском «4.» по тексту: парсер выносит номер пункта в отдельное поле,
         # и в тексте статьи его уже нет. Без списка проверка пропускается —
         # это честнее, чем угадывать по подстроке и врать в обе стороны.
-        if article_clauses is not None and q.preferred_clause:
-            known = article_clauses.get(q.preferred_clause.article)
-            if known is not None and normalize_clause(q.preferred_clause.clause) not in known:
-                report.missing_clauses.append((q.id, str(q.preferred_clause)))
+        if article_clauses is not None:
+            refs = (*q.required_clauses, *([q.preferred_clause] if q.preferred_clause else []))
+            for ref in dict.fromkeys(refs):
+                known = article_clauses.get(ref.article)
+                if known is not None and normalize_clause(ref.clause) not in known:
+                    report.missing_clauses.append((q.id, str(ref)))
 
     return report

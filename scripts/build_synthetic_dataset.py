@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from kz_labor_rag.corpus.evidence import extract_evidence  # noqa: E402
+from kz_labor_rag.corpus.evidence import clauses_of_quote, extract_evidence  # noqa: E402
 from kz_labor_rag.corpus.parser import parse_file  # noqa: E402
 from kz_labor_rag.eval.dataset import (  # noqa: E402
     DatasetError,
@@ -468,6 +468,20 @@ def write_review(dataset: EvalDataset, code) -> None:
     Path(REVIEW).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def required_clauses_of(evidence: list[dict], by_number: dict) -> list[dict]:
+    """Пункты, в которых лежат цитаты, в порядке цитат и без повторов.
+
+    Отметку ревью это поле не сбрасывает и в ``review_fingerprint`` не входит:
+    оно целиком выводится из цитат, которые человек уже проверил.
+    """
+    refs: dict[tuple[str, str], None] = {}
+    for ev in evidence:
+        clauses = [(c.number, c.text) for c in by_number[ev["article"]].clauses]
+        for number in clauses_of_quote(clauses, ev["quote"]):
+            refs[(ev["article"], number)] = None
+    return [{"article": a, "clause": c} for a, c in refs]
+
+
 def main() -> int:
     code = parse_file(RAW)
     by_number = code.by_number
@@ -532,6 +546,7 @@ def main() -> int:
                         if preferred is None
                         else {"article": preferred[0], "clause": preferred[1]}
                     ),
+                    "required_clauses": required_clauses_of(evidence, by_number),
                     "tags": list(tags),
                     "lang": "ru",
                     "evidence": evidence,

@@ -17,6 +17,7 @@ from kz_labor_rag.eval.dataset import (
     save_dataset,
     validate_against_corpus,
 )
+from kz_labor_rag.types import ClauseRef
 
 VALID = {
     "id": "q001",
@@ -24,6 +25,7 @@ VALID = {
     "lang": "ru",
     "origin": "synthetic",
     "required_articles": ["54"],
+    "required_clauses": [{"article": "54", "clause": "2"}],
     "acceptable_articles": ["52"],
     "evidence": [
         {
@@ -77,6 +79,45 @@ class TestSchema:
     def test_unknown_origin_rejected(self):
         with pytest.raises(DatasetError, match="origin"):
             q(origin="generated")
+
+
+class TestRequiredClauses:
+    """Эталон на уровне пунктов: по нему считаются recall@k и MRR."""
+
+    def test_parsed_as_clause_refs(self):
+        assert q().required_clauses == (ClauseRef("54", "2"),)
+
+    def test_ready_question_without_clauses_is_rejected(self):
+        with pytest.raises(DatasetError, match="required_clauses"):
+            q(required_clauses=[])
+
+    def test_clause_of_a_foreign_article_is_rejected(self):
+        with pytest.raises(DatasetError, match="вне required_articles"):
+            q(required_clauses=[{"article": "54", "clause": "2"}, {"article": "52", "clause": "1"}])
+
+    def test_every_required_article_needs_a_clause(self):
+        with pytest.raises(DatasetError, match="нет ни одного пункта"):
+            q(
+                required_articles=["54", "52"],
+                acceptable_articles=[],
+                evidence=[
+                    {"article": "54", "quote": "Не допускается"},
+                    {"article": "52", "quote": "Трудовой договор"},
+                ],
+            )
+
+    def test_preferred_clause_must_be_required(self):
+        with pytest.raises(DatasetError, match="не входит в required_clauses"):
+            q(required_clauses=[{"article": "54", "clause": "1"}])
+
+    def test_roundtrip(self):
+        assert EvalQuestion.from_dict(q().to_dict()) == q()
+
+    def test_draft_needs_no_clauses(self):
+        draft = EvalQuestion.from_dict(
+            {"id": "real_001", "lang": "ru", "origin": "real", "status": "draft"}
+        )
+        assert draft.required_clauses == ()
 
 
 class TestIO:
@@ -156,6 +197,7 @@ class TestDraftSlots:
                     "lang": "ru",
                     "origin": "real",
                     "required_articles": ["54"],
+    "required_clauses": [{"article": "54", "clause": "2"}],
                 }
             )
 
@@ -230,6 +272,7 @@ class TestCorpusValidation:
                 questions=(
                     q(
                         required_articles=["999"],
+                        required_clauses=[{"article": "999", "clause": "1"}],
                         preferred_clause=None,
                         evidence=[{"article": "999", "quote": "текст несуществующей статьи"}],
                     ),
@@ -300,6 +343,7 @@ class TestClauseValidation:
                 questions=(
                     q(
                         preferred_clause={"article": "54", "clause": "9"},
+                        required_clauses=[{"article": "54", "clause": "9"}],
                         evidence=[{"article": "54", "quote": "Не допускается расторжение"}],
                     ),
                 )
@@ -316,6 +360,7 @@ class TestClauseValidation:
                 questions=(
                     q(
                         preferred_clause={"article": "54", "clause": "9"},
+                        required_clauses=[{"article": "54", "clause": "9"}],
                         evidence=[{"article": "54", "quote": "Не допускается расторжение"}],
                     ),
                 )

@@ -16,6 +16,7 @@ BASE = {
     "lang": "ru",
     "origin": "synthetic",
     "required_articles": ["54"],
+    "required_clauses": [{"article": "54", "clause": "1"}],
     "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
     "reviewed_by_human": True,
 }
