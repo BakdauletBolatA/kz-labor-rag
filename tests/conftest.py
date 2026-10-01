@@ -138,7 +138,7 @@ PRODUCTION_FILES = (
 # Каталоги, в которые тест не имеет права ничего дописать.
 PRODUCTION_DIRS = (".cache/embeddings", "evals/results", "data/processed")
 
-# Таблица боевого индекса. Тесты обязаны работать с любой другой.
+# Таблица боевого индекса baseline. Тесты обязаны работать с любой другой.
 PRODUCTION_TABLE = "chunks"
 
 
