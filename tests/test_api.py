@@ -100,7 +100,7 @@ class TestAsk:
 class TestContext:
     def test_returns_exactly_what_the_model_sees(self, client):
         body = client.get("/context", params={"q": QUESTION}).json()
-        assert "Статья 54" in body["context"]
+        assert "ст. 54" in body["context"]
         assert "Текст статьи 54." in body["context"]
 
 

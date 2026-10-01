@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from kz_labor_rag.eval.citations import cite
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
 from kz_labor_rag.types import RetrievedChunk
 
@@ -92,15 +93,22 @@ def format_context(chunks: Sequence[RetrievedChunk]) -> str:
 
     На baseline это ничего не меняет: при нарезке по токенам заголовок и так
     всегда пуст.
+
+    Подпись перечисляет пункты, а не только статьи: ответ обязан ссылаться на
+    конкретный пункт, а номера пунктов парсер выносит из текста, так что без
+    подписи модель их просто не видит.
     """
     parts = []
-    for chunk in chunks:
-        articles = chunk.articles
-        if len(articles) == 1:
-            header = f"[Статья {articles[0]}]"
-        else:
-            header = f"[Статьи {', '.join(articles)} — фрагмент пересекает границы статей]"
-        parts.append(f"{header}\n{chunk.text.strip()}")
+    for index, chunk in enumerate(chunks, start=1):
+        spans = chunk.chunk.spans
+        label = (
+            "; ".join(cite(a, c) for a, c in spans)
+            if spans
+            else ", ".join(f"ст. {a}" for a in chunk.articles)
+        )
+        if len(chunk.articles) > 1:
+            label += " (фрагмент пересекает границы статей)"
+        parts.append(f"[Фрагмент {index} — {label}]\n{chunk.text.strip()}")
     return "\n\n".join(parts)
 
 
