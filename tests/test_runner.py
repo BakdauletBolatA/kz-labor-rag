@@ -338,3 +338,33 @@ class TestRecallIsCountedInClauses:
         primary = self.run_one(config, hits)["aggregates"]["primary"]
         assert primary["recall@5"] == 1.0
         assert primary["mrr"] == 0.5
+
+
+class TestLatencyExcludesModelLoading:
+    """Задержка поиска не должна включать ленивую загрузку модели.
+
+    В первом baseline задержка первого вопроса была 11.8 с: в неё попала
+    загрузка весов e5 при первом запросе. Сравнивать такую цифру между
+    методами бессмысленно — она меряет диск, а не поиск.
+    """
+
+    class SlowFirstCall(FakeRetriever):
+        def __init__(self, responses):
+            super().__init__(responses)
+            self.loaded = False
+
+        def warmup(self) -> None:
+            self.loaded = True
+
+        def search(self, query, k):
+            if not self.loaded:
+                import time
+
+                time.sleep(0.3)
+                self.loaded = True
+            return super().search(query, k)
+
+    def test_first_question_is_not_charged_for_loading(self, config):
+        ds = EvalDataset(questions=(q("r1", question="в1"),))
+        result = EvalRunner(config, self.SlowFirstCall({})).run(ds)
+        assert result["questions"][0]["latency_ms"]["retrieval"] < 100

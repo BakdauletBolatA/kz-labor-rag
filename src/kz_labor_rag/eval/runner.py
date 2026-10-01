@@ -252,6 +252,10 @@ class EvalRunner:
         # считаются без них, а доля честных отказов — в оценке ответов.
         scored = [q for q in verified if not q.is_unanswerable]
 
+        # Ленивая загрузка весов не должна попасть в задержку первого вопроса.
+        if warmup := getattr(self.retriever, "warmup", None):
+            warmup()
+
         started = datetime.now(UTC)
         t0 = time.perf_counter()
         runs = [self.run_question(q) for q in scored]

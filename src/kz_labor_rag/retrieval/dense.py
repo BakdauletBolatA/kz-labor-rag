@@ -73,7 +73,12 @@ class DenseRetriever:
             )
         }
 
-    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
+    def warmup(self) -> None:
+        """Загрузить модель и проверить индекс до того, как пойдут замеры."""
+        self._verify_index()
+        self.encoder.encode_query("прогрев")
+
+    def _verify_index(self) -> None:
         if not self._index_verified:
             if self.store.count() == 0:
                 raise StoreError(
@@ -81,6 +86,9 @@ class DenseRetriever:
                     "(в Docker это делает точка входа при первом запуске)"
                 )
             self._index_verified = True
+
+    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
+        self._verify_index()
         vector = self.encoder.encode_query(query)
         limit = max(k, self.candidate_k or k)
         hits = self.store.search(vector, limit)
