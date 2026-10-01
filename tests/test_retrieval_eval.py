@@ -6,6 +6,7 @@ import importlib.util
 from pathlib import Path
 
 from kz_labor_rag.config import load_config
+from kz_labor_rag.eval.experiments import EMBEDDINGS, derive, table_name
 
 SCRIPT = Path(__file__).resolve().parents[1] / "evals" / "retrieval_eval.py"
 spec = importlib.util.spec_from_file_location("retrieval_eval", SCRIPT)
@@ -16,9 +17,7 @@ spec.loader.exec_module(retrieval_eval)
 def test_derive_overrides_without_touching_the_base():
     base = load_config(apply_env=False)
     before = base.get("embeddings.model")
-    config = retrieval_eval.derive(
-        base, retrieval_eval.EMBEDDINGS["bge-m3"], version="v", table="exp_t"
-    )
+    config = derive(base, EMBEDDINGS["bge-m3"], version="v", table="exp_t")
     assert config.get("embeddings.model") == "BAAI/bge-m3"
     assert config.get("vector_store.table") == "exp_t"
     assert config.get("generation.enabled") is False
@@ -65,3 +64,7 @@ def test_context_size_sums_the_top_k_chunks():
     result["questions"][0]["retrieved"] = [{"chunk_id": "a"}, {"chunk_id": "b"}, {"chunk_id": "c"}]
     summary = retrieval_eval.summarize(result, k=2, token_lengths={"a": 100, "b": 50, "c": 999})
     assert summary["context_tokens"] == 150
+
+
+def test_table_names_are_valid_sql_identifiers():
+    assert table_name("clause+header", "e5-base") == "exp_clause_header_e5_base"

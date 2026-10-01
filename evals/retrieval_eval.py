@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import logging
 import statistics
@@ -30,52 +29,14 @@ from pathlib import Path
 import numpy as np
 
 from kz_labor_rag.cli import build_retriever
-from kz_labor_rag.config import Config, load_config
+from kz_labor_rag.config import load_config
 from kz_labor_rag.corpus.chunker import build_tokenizer
 from kz_labor_rag.eval.dataset import load_dataset
+from kz_labor_rag.eval.experiments import CHUNKINGS, cell_config
 from kz_labor_rag.eval.runner import EvalRunner
-from kz_labor_rag.indexer import build_index, index_mismatch
 from kz_labor_rag.retrieval.factory import build_store
 
 log = logging.getLogger("retrieval_eval")
-
-
-def chunking(strategy: str, overlap: int = 0, header: bool = False) -> dict:
-    return {
-        "chunking.strategy": strategy,
-        "chunking.chunk_overlap_tokens": overlap,
-        "chunking.prepend_article_header": header,
-    }
-
-
-CHUNKINGS: dict[str, dict] = {
-    "fixed512": chunking("fixed_tokens"),
-    "fixed512-overlap128": chunking("fixed_tokens", overlap=128),
-    "clause": chunking("clause"),
-    "article": chunking("article"),
-    # Заголовок статьи — отдельная гипотеза, поэтому отдельной строкой.
-    "clause+header": chunking("clause", header=True),
-}
-
-EMBEDDINGS: dict[str, dict] = {
-    "e5-base": {},
-    "bge-m3": {
-        "embeddings.model": "BAAI/bge-m3",
-        "embeddings.dimensions": 1024,
-        "embeddings.query_prefix": "",
-        "embeddings.passage_prefix": "",
-        "embeddings.max_sequence_length": 8192,
-    },
-}
-
-METHODS: dict[str, dict] = {
-    "dense": {"retrieval.implementation": "dense"},
-    "bm25-lemma": {"retrieval.implementation": "bm25", "retrieval.bm25.analyzer": "lemma"},
-    "bm25-stem": {"retrieval.implementation": "bm25", "retrieval.bm25.analyzer": "stem"},
-    "hybrid": {"retrieval.implementation": "hybrid"},
-    "dense+rerank": {"retrieval.implementation": "dense", "retrieval.reranker.enabled": True},
-    "hybrid+rerank": {"retrieval.implementation": "hybrid", "retrieval.reranker.enabled": True},
-}
 
 # Основная сетка: каждая нарезка × четыре метода на базовой модели. Сверху —
 # сравнения этапа 3 на baseline-нарезке: второй анализатор BM25, реранкинг без
@@ -86,31 +47,6 @@ CELLS: list[tuple[str, str, str]] = [(c, "e5-base", m) for c in CHUNKINGS for m 
     ("fixed512", "e5-base", "dense+rerank"),
     ("fixed512", "bge-m3", "dense"),
 ]
-
-
-def derive(base: Config, *overrides: dict, version: str, table: str) -> Config:
-    data = copy.deepcopy(base.data)
-    for block in overrides:
-        for dotted, value in block.items():
-            node = data
-            *path, last = dotted.split(".")
-            for key in path:
-                node = node[key]
-            node[last] = value
-    data["version"] = version
-    data["vector_store"]["table"] = table
-    # Генерация и судья здесь не участвуют: таблица только про поиск.
-    data["generation"]["enabled"] = False
-    data["judge"]["enabled"] = False
-    return Config(data=data, path=base.path, root=base.root)
-
-
-def ensure_index(config: Config, budget_config: Config) -> None:
-    store = build_store(config)
-    if store.count() and not index_mismatch(config, store):
-        return
-    log.info("Строится индекс %s", config.get("vector_store.table"))
-    build_index(config, store=store, budget_config=budget_config)
 
 
 def percentile(values: list[float], q: float) -> float | None:
@@ -211,15 +147,7 @@ def main() -> int:
         version = f"{chunking_name}/{embeddings}/{method}"
         if args.only and args.only not in version:
             continue
-        overrides = CHUNKINGS[chunking_name]
-        table = f"exp_{chunking_name}_{embeddings}"
-        for ch in "-+.":
-            table = table.replace(ch, "_")
-        config = derive(
-            base, overrides, EMBEDDINGS[embeddings], METHODS[method], version=version, table=table
-        )
-        budget_config = derive(base, overrides, version="budget", table="unused")
-        ensure_index(config, budget_config)
+        config = cell_config(base, chunking_name, embeddings, method)
 
         chunks = build_store(config).all_chunks()
         texts = [c.text for c in chunks]
