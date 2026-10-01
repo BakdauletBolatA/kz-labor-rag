@@ -113,6 +113,10 @@ class ReviewSession:
     # --- состояние --------------------------------------------------------
 
     def _replace(self, new: EvalQuestion | None, old_id: str) -> None:
+        # Файл перечитывается перед каждой записью: меняется только этот
+        # вопрос, а не вся копия, загруженная при старте. Иначе вторая открытая
+        # сессия затёрла бы отметки первой.
+        self.dataset = load_dataset(self.path)
         kept = tuple(q for q in self.dataset.questions if q.id != old_id)
         questions = kept if new is None else kept + (new,)
         self.dataset = EvalDataset(questions=questions, path=self.path)
@@ -216,6 +220,7 @@ class ReviewSession:
             queue = [q.id for q in self.dataset.ready if not q.verified]
 
         for qid in queue:
+            self.dataset = load_dataset(self.path)
             q = self._get(qid)
             if q is None:
                 continue

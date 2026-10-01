@@ -169,3 +169,20 @@ class TestHelpers:
         quote = clause_quote("слово " * 200)
         assert len(quote) <= 600
         assert not quote.endswith(" ")
+
+
+class TestConcurrentSessions:
+    """Две открытые сессии не должны молча затирать отметки друг друга.
+
+    Сессия держит набор в памяти и перезаписывает файл целиком. Вторая
+    сессия, открытая раньше, записала бы свою устаревшую копию поверх.
+    """
+
+    def test_second_session_keeps_marks_of_the_first(self, path, code):
+        first, _ = session(path, code, ["v", "q"])
+        second, _ = session(path, code, ["s", "v", "q"])
+        first.run()
+        second.run()
+        saved = by_id(path)
+        assert saved["a"].verified is True
+        assert saved["b"].verified is True
