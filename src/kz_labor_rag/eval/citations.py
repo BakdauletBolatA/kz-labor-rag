@@ -26,7 +26,8 @@ _CITATION = re.compile(
     rf"(?:\s*,?\s*(?:п\.?|пункт\w*)\s*({_NUMBER}))?",
     re.IGNORECASE,
 )
-_SOURCES = re.compile(r"^\s*источники\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
+# «Источники:» бывает и отдельной строкой, и в конце последнего предложения.
+_SOURCES = re.compile(r"(?:^|(?<=\s))источники\s*:(.*)$", re.IGNORECASE | re.MULTILINE)
 
 
 @dataclass(frozen=True)

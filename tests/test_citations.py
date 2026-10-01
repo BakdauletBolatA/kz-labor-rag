@@ -89,3 +89,17 @@ class TestParaphrasedRefusal:
     def test_answer_mentioning_absence_later_is_not_a_refusal(self):
         raw = "Нельзя: ст. 54 запрещает увольнение. Других оснований нет.\nИсточники: ст. 54 п. 1"
         assert not ground(raw, CONTEXT).refused
+
+
+class TestInlineSources:
+    """Модель иногда пишет «Источники:» в конце предложения, а не с новой строки.
+
+    Ответ тогда выходил с двумя строками источников: своя не вырезалась,
+    проверенная добавлялась.
+    """
+
+    def test_inline_sources_are_replaced_not_duplicated(self):
+        raw = "Нет, уволить нельзя. Источники: ст. 54 п. 1; ст. 99 п. 1"
+        g = ground(raw, CONTEXT)
+        assert g.text.count("Источники") == 1
+        assert g.text == "Нет, уволить нельзя.\n\nИсточники: ст. 54 п. 1"
