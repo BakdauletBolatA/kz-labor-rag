@@ -108,13 +108,6 @@ def config() -> Config:
                 "k": 5,
                 "languages": ["ru", "kk"],
                 "primary_language": "ru",
-                "completeness": {
-                    "enforce": True,
-                    "min_ru": 60,
-                    "min_kk": 15,
-                    "min_real": 15,
-                    "require_human_review": True,
-                },
             },
         }
     )

@@ -221,7 +221,7 @@ class TestRealRunResultsAreComparable:
 
         hits = ranked("54", "1") if found else ranked("1", "2")
         retriever = FakeRetriever({q.question: hits for q in dataset})
-        return EvalRunner(config, retriever).run(dataset, enforce_gate=False)
+        return EvalRunner(config, retriever).run(dataset)
 
     def test_result_carries_every_comparability_key(self, config, dataset):
         result = self._run(config, dataset, found=True)

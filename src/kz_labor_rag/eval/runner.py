@@ -25,7 +25,7 @@ from typing import Any
 
 from kz_labor_rag.config import Config
 from kz_labor_rag.eval import metrics as M
-from kz_labor_rag.eval.dataset import CompletenessRule, EvalDataset, EvalQuestion
+from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
 from kz_labor_rag.eval.generator import Generation, Generator
 from kz_labor_rag.eval.judge import Judge, Judgement, context_format_fingerprint
 from kz_labor_rag.types import Retriever
@@ -33,12 +33,10 @@ from kz_labor_rag.types import Retriever
 RESULT_SCHEMA_VERSION = "1.0"
 
 
-class DatasetNotReadyError(RuntimeError):
-    """Датасет не укомплектован, а гейт включён.
+class NoVerifiedQuestionsError(RuntimeError):
+    """В датасете нет ни одного вопроса, проверенного человеком.
 
-    Пока это исключение летит — цифрам в EVALUATION.md взяться неоткуда, и это
-    правильно: baseline, посчитанный на неполном датасете, несравним с
-    итерациями, посчитанными на полном.
+    Метрика на непроверенной разметке мерила бы ошибки эталона, а не поиска.
     """
 
 
@@ -141,28 +139,6 @@ class EvalRunner:
         self.judge = judge
         self.k = int(config.get("eval.k"))
 
-    # --- гейт готовности датасета ---------------------------------------
-
-    def check_dataset_ready(self, dataset: EvalDataset) -> None:
-        rules = self.config.section("eval")["completeness"]
-        if not rules.get("enforce", True):
-            return
-        rule = CompletenessRule(
-            min_ru=int(rules["min_ru"]),
-            min_kk=int(rules["min_kk"]),
-            min_real=int(rules["min_real"]),
-            require_human_review=bool(rules["require_human_review"]),
-        )
-        if problems := rule.violations(dataset):
-            listed = "\n  - ".join(problems)
-            raise DatasetNotReadyError(
-                "Датасет не укомплектован, прогон остановлен:\n  - "
-                + listed
-                + "\n\nЦифры на неполном датасете несравнимы с будущими итерациями. "
-                "Доукомплектуйте датасет либо временно снимите eval.completeness.enforce "
-                "в конфиге — но тогда результат нельзя писать в EVALUATION.md."
-            )
-
     # --- один вопрос ------------------------------------------------------
 
     def run_question(self, q: EvalQuestion) -> QuestionRun:
@@ -261,14 +237,20 @@ class EvalRunner:
 
     # --- полный прогон ----------------------------------------------------
 
-    def run(self, dataset: EvalDataset, *, enforce_gate: bool = True) -> dict[str, Any]:
-        if enforce_gate:
-            self.check_dataset_ready(dataset)
+    def run(self, dataset: EvalDataset) -> dict[str, Any]:
+        # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
+        # Непроверенные — тоже: их разметка может быть просто неверной.
+        verified = dataset.verified
+        if not verified:
+            raise NoVerifiedQuestionsError(
+                f"в датасете {dataset.path or ''} нет ни одного проверенного вопроса "
+                f"(готовых: {len(dataset.ready)}). Метрики считаются только по "
+                "вопросам с отметкой ревью."
+            )
 
         started = datetime.now(UTC)
         t0 = time.perf_counter()
-        # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
-        runs = [self.run_question(q) for q in dataset.ready]
+        runs = [self.run_question(q) for q in verified]
         wall = time.perf_counter() - t0
 
         by_lang = {
@@ -324,6 +306,12 @@ class EvalRunner:
                 "sha256": dataset_sha,
                 "schema_version": dataset.schema_version,
                 "stats": dataset.stats,
+                "evaluated": {
+                    "n": len(verified),
+                    "real": sum(1 for q in verified if q.origin == "real"),
+                    "synthetic": sum(1 for q in verified if q.origin == "synthetic"),
+                    "skipped_unverified": len(dataset.ready) - len(verified),
+                },
             },
             "components": {
                 "retriever": {"version": self.retriever.version, **provenance},

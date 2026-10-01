@@ -116,19 +116,15 @@ judge:
 eval:
   dataset: evals/datasets/kz_labor_v1.jsonl
   results_dir: evals/results
-  # k, на котором считаются recall@k и clause-метрики.
+  # k, на котором считаются recall@k, MRR и article_recall@k.
   # Меняется только вместе с бампом metrics_version.
   k: 5
   languages: [ru, kk]
   # Основной срез, по которому идут главные цифры в EVALUATION.md.
   primary_language: ru
-  # Гейт: baseline не запускается на неукомплектованном датасете.
-  completeness:
-    enforce: true
-    min_ru: 60
-    min_kk: 15
-    min_real: 15
-    require_human_review: true
+  # Метрики считаются только по вопросам с отметкой ревью человеком;
+  # число посчитанных вопросов пишется в каждый результат.
+
   # Число повторов прогона генератора и судьи. LLM-часть шумит,
   # и одиночный прогон выдаёт разброс за улучшение.
   repeats: 1

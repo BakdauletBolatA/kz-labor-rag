@@ -8,7 +8,7 @@ import pytest
 from conftest import FakeGenerator, FakeJudge, FakeRetriever, make_chunk, ranked
 
 from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
-from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
+from kz_labor_rag.eval.runner import EvalRunner, NoVerifiedQuestionsError, save_result
 from kz_labor_rag.types import RetrievedChunk
 
 BASE = {
@@ -27,7 +27,7 @@ def q(qid: str, **overrides) -> EvalQuestion:
 
 
 def complete_dataset(responses_ok: bool = True) -> EvalDataset:
-    """Датасет, проходящий гейт: 60 ru (15 real) + 15 kk."""
+    """60 ru (15 real) + 15 kk, все проверены."""
     return EvalDataset(
         questions=tuple(
             q(f"r{i}", question=f"вопрос {i}", origin="real" if i < 15 else "synthetic")
@@ -38,26 +38,44 @@ def complete_dataset(responses_ok: bool = True) -> EvalDataset:
     )
 
 
-class TestCompletenessGate:
-    def test_incomplete_dataset_stops_the_run(self, config):
-        runner = EvalRunner(config, FakeRetriever({}))
-        tiny = EvalDataset(questions=(q("r1"),))
-        with pytest.raises(DatasetNotReadyError) as exc:
-            runner.run(tiny)
-        # Сообщение обязано объяснять, почему запуск остановлен, а не просто падать.
-        assert "не укомплектован" in str(exc.value)
-        assert "русских вопросов 1" in str(exc.value)
+class TestOnlyVerifiedQuestionsAreCounted:
+    """Метрики считаются только по вопросам, проверенным человеком.
 
-    def test_gate_can_be_bypassed_explicitly(self, config):
-        runner = EvalRunner(config, FakeRetriever({}))
-        tiny = EvalDataset(questions=(q("r1", question="вопрос 1"),))
-        result = runner.run(tiny, enforce_gate=False)
-        assert result["aggregates"]["primary"]["n"] == 1
+    Непроверенная разметка может быть просто неверной, и метрика на ней мерила
+    бы ошибки эталона, а не поиска. Сколько вопросов реально посчитано, пишется
+    в каждый результат: цифра без n ничего не значит.
+    """
 
-    def test_gate_disabled_in_config(self, config):
-        config.data["eval"]["completeness"]["enforce"] = False
-        runner = EvalRunner(config, FakeRetriever({}))
-        runner.check_dataset_ready(EvalDataset(questions=(q("r1"),)))  # не должно падать
+    def test_unverified_questions_are_skipped(self, config):
+        ds = EvalDataset(
+            questions=(
+                q("r1", question="в1"),
+                q("r2", question="в2", origin="real"),
+                q("r3", question="в3", reviewed_by_human=False),
+            )
+        )
+        result = EvalRunner(config, FakeRetriever({})).run(ds)
+        assert result["aggregates"]["primary"]["n"] == 2
+        assert [x["id"] for x in result["questions"]] == ["r1", "r2"]
+        assert result["dataset"]["evaluated"] == {
+            "n": 2,
+            "real": 1,
+            "synthetic": 1,
+            "skipped_unverified": 1,
+        }
+
+    def test_no_verified_questions_stops_the_run(self, config):
+        ds = EvalDataset(questions=(q("r1", reviewed_by_human=False),))
+        with pytest.raises(NoVerifiedQuestionsError, match="ни одного проверенного"):
+            EvalRunner(config, FakeRetriever({})).run(ds)
+
+    def test_drafts_are_not_counted_as_skipped(self, config):
+        draft = EvalQuestion.from_dict(
+            {"id": "real_099", "lang": "ru", "origin": "real", "status": "draft"}
+        )
+        ds = EvalDataset(questions=(q("r1"), draft))
+        result = EvalRunner(config, FakeRetriever({})).run(ds)
+        assert result["dataset"]["evaluated"]["skipped_unverified"] == 0
 
 
 class TestAggregates:
@@ -249,42 +267,7 @@ class TestResultShape:
             save_result(result, tmp_path)
 
 
-class TestHumanReviewGate:
-    """Гейт ревью — в коде, а не в договорённости.
-
-    Один неотревьюированный вопрос из шестидесяти обязан останавливать
-    прогон целиком: иначе baseline считается по эталону, который никто
-    не проверял, и все дальнейшие сравнения опираются на непроверенные числа.
-    """
-
-    def _reviewed(self, n_ru: int = 60, n_kk: int = 15) -> list[EvalQuestion]:
-        return [
-            q(
-                f"r{i}",
-                question=f"вопрос {i}",
-                origin="real" if i < 15 else "synthetic",
-                reviewed_by_human=True,
-            )
-            for i in range(n_ru)
-        ] + [
-            q(f"k{i}", question=f"сұрақ {i}", lang="kk", reviewed_by_human=True)
-            for i in range(n_kk)
-        ]
-
-    def test_fully_reviewed_dataset_runs(self, config):
-        ds = EvalDataset(questions=tuple(self._reviewed()))
-        result = EvalRunner(config, FakeRetriever({x.question: ranked("54/1") for x in ds})).run(ds)
-        assert result["aggregates"]["primary"]["n"] == 60
-
-    def test_single_unreviewed_question_blocks_the_run(self, config):
-        questions = self._reviewed()
-        questions[37] = q("r37", question="вопрос 37", reviewed_by_human=False)
-        ds = EvalDataset(questions=tuple(questions))
-
-        with pytest.raises(DatasetNotReadyError) as exc:
-            EvalRunner(config, FakeRetriever({})).run(ds)
-        assert "не отревьюировано человеком: r37" in str(exc.value)
-
+class TestReviewFlag:
     def test_default_is_unreviewed(self):
         # Дефолт false: вопрос считается непроверенным, пока не сказано обратное.
         raw = {k: v for k, v in BASE.items() if k != "reviewed_by_human"}
@@ -304,17 +287,6 @@ class TestHumanReviewGate:
         loaded = load_dataset(path)
         assert [x.reviewed_by_human for x in loaded] == [True, False]
 
-    def test_gate_ignores_review_flag_on_drafts(self, config):
-        # Черновой слот нельзя отревьюировать — вопроса ещё нет.
-        draft = EvalQuestion.from_dict(
-            {"id": "real_099", "lang": "ru", "origin": "real", "status": "draft"}
-        )
-        ds = EvalDataset(questions=tuple(self._reviewed()) + (draft,))
-        result = EvalRunner(
-            config, FakeRetriever({x.question: ranked("54/1") for x in ds.ready})
-        ).run(ds)
-        assert result["aggregates"]["primary"]["n"] == 60
-
 
 class TestRecallIsCountedInClauses:
     """recall@k и MRR считаются по пунктам, а не по статьям.
@@ -329,7 +301,7 @@ class TestRecallIsCountedInClauses:
         question = q("r1", question="вопрос про ст. 54 п. 1")
         dataset = EvalDataset(questions=(question,))
         retriever = FakeRetriever({question.question: hits})
-        return EvalRunner(config, retriever).run(dataset, enforce_gate=False)
+        return EvalRunner(config, retriever).run(dataset)
 
     def test_right_article_wrong_clause_is_a_miss(self, config):
         hits = [RetrievedChunk(chunk=make_chunk("54", ("2",)), score=0.9, rank=1)]

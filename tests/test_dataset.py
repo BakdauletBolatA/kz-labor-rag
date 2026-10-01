@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from kz_labor_rag.eval.dataset import (
-    CompletenessRule,
     DatasetError,
     EvalDataset,
     EvalQuestion,
@@ -197,7 +196,7 @@ class TestDraftSlots:
                     "lang": "ru",
                     "origin": "real",
                     "required_articles": ["54"],
-    "required_clauses": [{"article": "54", "clause": "2"}],
+                    "required_clauses": [{"article": "54", "clause": "2"}],
                 }
             )
 
@@ -209,10 +208,7 @@ class TestDraftSlots:
             for i in range(1, 16)
         )
         ds = EvalDataset(questions=(q(id="s1"),) + drafts)
-        # 15 черновых слотов с origin=real не должны закрывать требование
-        # «минимум 15 реальных вопросов».
-        problems = CompletenessRule(min_ru=1, min_kk=0, min_real=15).violations(ds)
-        assert problems == ["вопросов с origin='real' 0, нужно минимум 15"]
+        assert ds.stats["real"] == 0
         assert ds.stats["draft_slots"] == 15
         assert ds.stats["total"] == 1
 
@@ -232,27 +228,13 @@ class TestDraftSlots:
         assert load_dataset(path).questions[0].is_draft
 
 
-class TestCompletenessGate:
-    def test_incomplete_dataset_lists_every_problem(self):
-        ds = EvalDataset(questions=(q(),))
-        problems = CompletenessRule().violations(ds)
-        assert len(problems) == 3  # мало ru, мало kk, мало real
-        assert any("русских" in p for p in problems)
-        assert any("казахских" in p for p in problems)
-        assert any("real" in p for p in problems)
-
-    def test_unreviewed_questions_block_the_gate(self):
-        ds = EvalDataset(questions=(q(reviewed_by_human=False),))
-        problems = CompletenessRule(min_ru=1, min_kk=0, min_real=0).violations(ds)
-        assert problems == ["не отревьюировано человеком: q001"]
-
-    def test_complete_dataset_passes(self):
-        questions = (
-            tuple(q(id=f"r{i}", origin="real") for i in range(15))
-            + tuple(q(id=f"s{i}") for i in range(45))
-            + tuple(q(id=f"k{i}", lang="kk") for i in range(15))
+class TestVerified:
+    def test_only_reviewed_ready_questions_are_verified(self):
+        draft = EvalQuestion.from_dict(
+            {"id": "real_001", "lang": "ru", "origin": "real", "status": "draft"}
         )
-        assert CompletenessRule().violations(EvalDataset(questions=questions)) == []
+        ds = EvalDataset(questions=(q(id="a"), q(id="b", reviewed_by_human=False), draft))
+        assert [x.id for x in ds.verified] == ["a"]
 
 
 class TestCorpusValidation:

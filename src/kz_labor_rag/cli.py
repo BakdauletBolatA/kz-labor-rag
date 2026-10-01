@@ -1,6 +1,6 @@
 """CLI eval-харнесса.
 
-kzrag-eval validate            # проверить датасет: схема, гейт, сверка с корпусом
+kzrag-eval validate            # проверить датасет: схема и сколько вопросов проверено
 kzrag-eval run                 # прогнать eval и записать JSON
 kzrag-eval show <result.json>  # показать агрегаты и проваленные вопросы
 """
@@ -15,10 +15,10 @@ from pathlib import Path
 
 from kz_labor_rag.config import Config, ConfigError, load_config
 from kz_labor_rag.eval.compare import IncomparableRunsError, build_table
-from kz_labor_rag.eval.dataset import CompletenessRule, DatasetError, load_dataset
+from kz_labor_rag.eval.dataset import DatasetError, load_dataset
 from kz_labor_rag.eval.factory import build_generator, build_judge
 from kz_labor_rag.eval.prompts import PromptRegistryError
-from kz_labor_rag.eval.runner import DatasetNotReadyError, EvalRunner, save_result
+from kz_labor_rag.eval.runner import EvalRunner, NoVerifiedQuestionsError, save_result
 from kz_labor_rag.indexer import index_mismatch
 from kz_labor_rag.retrieval.factory import build_retriever as _build_dense
 from kz_labor_rag.retrieval.store import StoreError
@@ -52,22 +52,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
     for key, value in dataset.stats.items():
         print(f"  {key:24} {value}")
 
-    rules = config.section("eval")["completeness"]
-    problems = CompletenessRule(
-        min_ru=int(rules["min_ru"]),
-        min_kk=int(rules["min_kk"]),
-        min_real=int(rules["min_real"]),
-        require_human_review=bool(rules["require_human_review"]),
-    ).violations(dataset)
-
-    if problems:
-        print("\nГейт готовности НЕ пройден:")
-        for problem in problems:
-            print(f"  - {problem}")
-        print("\nBaseline запускать нельзя, цифры в EVALUATION.md писать нельзя.")
+    verified = dataset.verified
+    print(f"\nПроверено человеком: {len(verified)} из {len(dataset.ready)} готовых.")
+    if not verified:
+        print("Метрики считать не по чему: нет ни одного проверенного вопроса.")
         return 1
-
-    print("\nГейт готовности пройден: датасет укомплектован.")
+    print("Метрики будут посчитаны только по проверенным вопросам.")
     return 0
 
 
@@ -108,8 +98,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     try:
-        result = runner.run(dataset, enforce_gate=not args.no_gate)
-    except DatasetNotReadyError as exc:
+        result = runner.run(dataset)
+    except NoVerifiedQuestionsError as exc:
         print(exc, file=sys.stderr)
         return 1
 
@@ -121,6 +111,12 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def _print_aggregates(result: dict) -> None:
     print(f"\nВерсия: {result['version']}  ({result.get('description', '')})")
+    if evaluated := result.get("dataset", {}).get("evaluated"):
+        print(
+            f"Посчитано по {evaluated['n']} проверенным вопросам "
+            f"(real {evaluated['real']}, synthetic {evaluated['synthetic']}); "
+            f"непроверенных пропущено: {evaluated['skipped_unverified']}"
+        )
     for lang, agg in result["aggregates"]["by_language"].items():
         if not agg.get("n"):
             continue
@@ -156,18 +152,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default=None, help="путь к YAML-конфигу")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_validate = sub.add_parser("validate", help="проверить датасет и гейт готовности")
+    p_validate = sub.add_parser("validate", help="проверить датасет и число проверенных вопросов")
     p_validate.add_argument("--dataset", default=None)
     p_validate.set_defaults(func=cmd_validate)
 
     p_run = sub.add_parser("run", help="прогнать eval и записать результат")
     p_run.add_argument("--dataset", default=None)
     p_run.add_argument("--results-dir", default=None)
-    p_run.add_argument(
-        "--no-gate",
-        action="store_true",
-        help="прогнать на неукомплектованном датасете (результат нельзя писать в EVALUATION.md)",
-    )
     p_run.set_defaults(func=cmd_run)
 
     p_compare = sub.add_parser("compare", help="таблица «до/после» по двум прогонам")

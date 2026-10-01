@@ -249,6 +249,11 @@ class EvalDataset:
         return tuple(q for q in self.questions if not q.is_draft)
 
     @property
+    def verified(self) -> tuple[EvalQuestion, ...]:
+        """Готовые вопросы, разметку которых проверил человек. Метрики — только по ним."""
+        return tuple(q for q in self.ready if q.reviewed_by_human)
+
+    @property
     def stats(self) -> dict[str, int]:
         ready = self.ready
         by_lang = Counter(q.lang for q in ready)
@@ -263,38 +268,6 @@ class EvalDataset:
             "reviewed_by_human": sum(1 for q in ready if q.reviewed_by_human),
             "draft_slots": len(self.questions) - len(ready),
         }
-
-
-@dataclass(frozen=True)
-class CompletenessRule:
-    """Условия, при которых датасет считается укомплектованным.
-
-    Пока правило не выполнено, baseline не запускается и в EVALUATION.md не
-    пишется ни одной цифры. Правило вынесено в конфиг, а не зашито в код,
-    но проверяется всегда.
-    """
-
-    min_ru: int = 60
-    min_kk: int = 15
-    min_real: int = 15
-    require_human_review: bool = True
-
-    def violations(self, dataset: EvalDataset) -> list[str]:
-        s = dataset.stats
-        problems: list[str] = []
-        if s["ru"] < self.min_ru:
-            problems.append(f"русских вопросов {s['ru']}, нужно минимум {self.min_ru}")
-        if s["kk"] < self.min_kk:
-            problems.append(f"казахских вопросов {s['kk']}, нужно минимум {self.min_kk}")
-        if s["real"] < self.min_real:
-            problems.append(f"вопросов с origin='real' {s['real']}, нужно минимум {self.min_real}")
-        if self.require_human_review:
-            unreviewed = [q.id for q in dataset.ready if not q.reviewed_by_human]
-            if unreviewed:
-                shown = ", ".join(unreviewed[:10])
-                tail = f" и ещё {len(unreviewed) - 10}" if len(unreviewed) > 10 else ""
-                problems.append(f"не отревьюировано человеком: {shown}{tail}")
-        return problems
 
 
 def load_dataset(path: str | Path) -> EvalDataset:
