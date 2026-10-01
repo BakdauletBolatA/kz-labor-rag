@@ -63,7 +63,7 @@ class TestCompletenessGate:
 class TestAggregates:
     def test_perfect_retrieval(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked("54", "1", "2") for x in ds}
+        responses = {x.question: ranked("54/1", "1", "2") for x in ds}
         runner = EvalRunner(config, FakeRetriever(responses))
         result = runner.run(ds)
 
@@ -86,7 +86,7 @@ class TestAggregates:
 
     def test_languages_are_reported_separately(self, config):
         ds = complete_dataset()
-        responses = {x.question: (ranked("54") if x.lang == "ru" else ranked("1")) for x in ds}
+        responses = {x.question: (ranked("54/1") if x.lang == "ru" else ranked("1")) for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         by_lang = result["aggregates"]["by_language"]
@@ -97,7 +97,9 @@ class TestAggregates:
 
     def test_real_and_synthetic_reported_separately(self, config):
         ds = complete_dataset()
-        responses = {x.question: (ranked("54") if x.origin == "real" else ranked("1")) for x in ds}
+        responses = {
+            x.question: (ranked("54/1") if x.origin == "real" else ranked("1")) for x in ds
+        }
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         by_origin = result["aggregates"]["by_origin"]
@@ -108,7 +110,7 @@ class TestAggregates:
         # Без генератора и судьи faithfulness не измерялась. Ноль здесь означал
         # бы «ответ не обоснован» и портил бы таблицу.
         ds = complete_dataset()
-        responses = {x.question: ranked("54") for x in ds}
+        responses = {x.question: ranked("54/1") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         primary = result["aggregates"]["primary"]
@@ -119,7 +121,7 @@ class TestAggregates:
 class TestGenerationAndJudge:
     def test_faithfulness_and_citations_recorded(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked("54", "1") for x in ds}
+        responses = {x.question: ranked("54/1", "1") for x in ds}
         runner = EvalRunner(
             config,
             FakeRetriever(responses),
@@ -135,7 +137,7 @@ class TestGenerationAndJudge:
 
     def test_hallucinated_citation_lowers_validity(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked("54") for x in ds}
+        responses = {x.question: ranked("54/1") for x in ds}
         runner = EvalRunner(
             config,
             FakeRetriever(responses),
@@ -152,7 +154,7 @@ class TestGenerationAndJudge:
 class TestResultShape:
     def test_result_is_self_describing(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked("54") for x in ds}
+        responses = {x.question: ranked("54/1") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         # По этому JSON строка EVALUATION.md должна восстанавливаться целиком.
@@ -186,7 +188,7 @@ class TestResultShape:
         промптов стережёт только текстовые файлы.
         """
         ds = complete_dataset()
-        responses = {x.question: ranked("54") for x in ds}
+        responses = {x.question: ranked("54/1") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         block = result["comparability"]
@@ -223,7 +225,7 @@ class TestResultShape:
 
     def test_per_question_retrieval_is_debuggable(self, config):
         ds = complete_dataset()
-        responses = {x.question: ranked("1", "2", "54") for x in ds}
+        responses = {x.question: ranked("1", "2", "54/1") for x in ds}
         result = EvalRunner(config, FakeRetriever(responses)).run(ds)
 
         first = result["questions"][0]["retrieved"][0]
@@ -233,7 +235,7 @@ class TestResultShape:
 
     def test_saved_file_names_carry_time_and_version(self, config, tmp_path):
         ds = complete_dataset()
-        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54/1") for x in ds})).run(ds)
         path = save_result(result, tmp_path)
 
         assert path.name.endswith("__test-v0.json")
@@ -241,7 +243,7 @@ class TestResultShape:
 
     def test_existing_result_is_never_overwritten(self, config, tmp_path):
         ds = complete_dataset()
-        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54/1") for x in ds})).run(ds)
         save_result(result, tmp_path)
         with pytest.raises(FileExistsError):
             save_result(result, tmp_path)
@@ -271,7 +273,7 @@ class TestHumanReviewGate:
 
     def test_fully_reviewed_dataset_runs(self, config):
         ds = EvalDataset(questions=tuple(self._reviewed()))
-        result = EvalRunner(config, FakeRetriever({x.question: ranked("54") for x in ds})).run(ds)
+        result = EvalRunner(config, FakeRetriever({x.question: ranked("54/1") for x in ds})).run(ds)
         assert result["aggregates"]["primary"]["n"] == 60
 
     def test_single_unreviewed_question_blocks_the_run(self, config):
@@ -309,6 +311,39 @@ class TestHumanReviewGate:
         )
         ds = EvalDataset(questions=tuple(self._reviewed()) + (draft,))
         result = EvalRunner(
-            config, FakeRetriever({x.question: ranked("54") for x in ds.ready})
+            config, FakeRetriever({x.question: ranked("54/1") for x in ds.ready})
         ).run(ds)
         assert result["aggregates"]["primary"]["n"] == 60
+
+
+class TestRecallIsCountedInClauses:
+    """recall@k и MRR считаются по пунктам, а не по статьям.
+
+    Ответ на вопрос лежит в конкретном пункте. Чанк с другим пунктом той же
+    статьи генератору ответа не даёт, но статейная метрика засчитывала его как
+    попадание: в ст. 52 больше двадцати оснований увольнения, и любой её кусок
+    «находил» нужную статью.
+    """
+
+    def run_one(self, config, hits):
+        question = q("r1", question="вопрос про ст. 54 п. 1")
+        dataset = EvalDataset(questions=(question,))
+        retriever = FakeRetriever({question.question: hits})
+        return EvalRunner(config, retriever).run(dataset, enforce_gate=False)
+
+    def test_right_article_wrong_clause_is_a_miss(self, config):
+        hits = [RetrievedChunk(chunk=make_chunk("54", ("2",)), score=0.9, rank=1)]
+        primary = self.run_one(config, hits)["aggregates"]["primary"]
+        assert primary["recall@5"] == 0.0
+        assert primary["mrr"] == 0.0
+        # Статейная метрика остаётся, но под своим именем.
+        assert primary["article_recall@5"] == 1.0
+
+    def test_mrr_ranks_the_chunk_with_the_clause(self, config):
+        hits = [
+            RetrievedChunk(chunk=make_chunk("54", ("2",), cid="c1"), score=0.9, rank=1),
+            RetrievedChunk(chunk=make_chunk("54", ("1",), cid="c2"), score=0.8, rank=2),
+        ]
+        primary = self.run_one(config, hits)["aggregates"]["primary"]
+        assert primary["recall@5"] == 1.0
+        assert primary["mrr"] == 0.5

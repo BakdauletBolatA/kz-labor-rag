@@ -61,8 +61,13 @@ class QuestionRun:
             "origin": self.question.origin,
             "required_articles": list(self.question.required_articles),
             "acceptable_articles": list(self.question.acceptable_articles),
+            "required_clauses": [str(c) for c in self.question.required_clauses],
             "retrieved": self.retrieved,
-            "metrics": {k: v for k, v in asdict(self.metrics).items() if k not in ("question_id",)},
+            "metrics": {
+                k: v
+                for k, v in asdict(self.metrics).items()
+                if k not in ("question_id", "required_articles", "required_clauses")
+            },
             "retrieval_failure": self.metrics.is_retrieval_failure,
             "latency_ms": self.latency_ms,
         }
@@ -188,23 +193,18 @@ class EvalRunner:
                     if judgement.ok:
                         faithfulness = judgement.score
 
-        clause_precision = clause_hit = None
-        if q.preferred_clause is not None:
-            clause_precision = M.clause_precision_at_k(q.preferred_clause, chunks, self.k)
-            clause_hit = M.clause_hit_at_k(q.preferred_clause, chunks, self.k)
-
+        required_clauses = q.required_clauses
         qm = M.QuestionMetrics(
             question_id=q.id,
-            # Окно метрик — по чанкам: это ровно то, что показано генератору.
-            recall_at_k=M.recall_at_k(q.required_articles, chunks, self.k),
-            strict_hit_at_k=M.strict_hit_at_k(q.required_articles, chunks, self.k),
-            reciprocal_rank=M.reciprocal_rank(q.required_articles, chunks),
+            recall_at_k=M.recall_at_k(required_clauses, chunks, self.k),
+            strict_hit_at_k=M.strict_hit_at_k(required_clauses, chunks, self.k),
+            reciprocal_rank=M.reciprocal_rank(required_clauses, chunks),
+            article_recall_at_k=M.article_recall_at_k(q.required_articles, chunks, self.k),
             citation_validity=citation_validity,
             faithfulness=faithfulness,
-            clause_precision_at_k=clause_precision,
-            clause_hit_at_k=clause_hit,
             retrieved_articles=ranked,
             required_articles=list(q.required_articles),
+            required_clauses=[str(c) for c in required_clauses],
         )
 
         return QuestionRun(
@@ -243,17 +243,11 @@ class EvalRunner:
             f"recall@{k}": _mean([m.recall_at_k for m in ms]),
             f"strict_hit@{k}": _mean([m.strict_hit_at_k for m in ms]),
             "mrr": _mean([m.reciprocal_rank for m in ms]),
+            f"article_recall@{k}": _mean([m.article_recall_at_k for m in ms]),
             "citation_validity": _mean(
                 [m.citation_validity for m in ms if m.citation_validity is not None]
             ),
             "faithfulness": _mean([m.faithfulness for m in ms if m.faithfulness is not None]),
-            f"clause_precision@{k}": _mean(
-                [m.clause_precision_at_k for m in ms if m.clause_precision_at_k is not None]
-            ),
-            f"clause_hit@{k}": _mean(
-                [m.clause_hit_at_k for m in ms if m.clause_hit_at_k is not None]
-            ),
-            "n_with_clause": sum(1 for m in ms if m.clause_precision_at_k is not None),
             "n_judged": sum(1 for m in ms if m.faithfulness is not None),
             "retrieval_failures": sorted(m.question_id for m in ms if m.is_retrieval_failure),
         }
