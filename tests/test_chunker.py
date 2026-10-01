@@ -165,21 +165,61 @@ class TestFixedTokenChunking:
         assert chunk_fixed_tokens(stream, TOK, PARAMS) == []
 
 
+def structured(strategy, articles, size=10, header=False, budget=None):
+    params = ChunkingParams(strategy, size, 0, prepend_article_header=header)
+    return build_chunks(LaborCode(articles=tuple(articles)), TOK, params, budget)
+
+
+class TestClauseChunking:
+    def test_one_chunk_per_clause(self):
+        chunks = structured("clause", [article("54", [("1", "аа бб"), ("2", "вв гг")])])
+        assert [c.spans for c in chunks] == [(("54", "1"),), (("54", "2"),)]
+        assert [c.text for c in chunks] == ["аа бб", "вв гг"]
+
+    def test_long_clause_is_split_inside_its_borders(self):
+        chunks = structured(
+            "clause", [article("52", [("1", words(25, "w")), ("2", words(3, "x"))])]
+        )
+        first = [c for c in chunks if c.spans == (("52", "1"),)]
+        assert len(first) == 3
+        assert all("x0" not in c.text for c in first)
+        assert chunks[-1].spans == (("52", "2"),)
+
+    def test_chunk_ids_are_unique(self):
+        chunks = structured("clause", [article("52", [("1", words(25, "w")), ("2", "x")])])
+        assert len({c.chunk_id for c in chunks}) == len(chunks)
+
+    def test_header_goes_into_every_window(self):
+        chunks = structured("clause", [article("52", [("1", words(25, "w"))])], header=True)
+        assert len(chunks) > 1
+        assert all(c.text.startswith("Статья 52. Заголовок\n") for c in chunks)
+
+    def test_header_is_counted_against_the_budget(self):
+        budget = EncodingBudget(measure=lambda t: len(t.split()), limit=10)
+        chunks = structured(
+            "clause", [article("52", [("1", words(25, "w"))])], header=True, budget=budget
+        )
+        assert max(len(c.text.split()) for c in chunks) <= 10
+
+
 class TestArticleChunking:
     def test_one_chunk_per_article(self):
-        code = LaborCode(
-            articles=(
-                article("52", [("1", "текст пятьдесят два")]),
-                article("53", [("1", "текст пятьдесят три")]),
-            )
+        chunks = structured(
+            "article",
+            [article("52", [("1", "текст"), ("2", "ещё")]), article("53", [("1", "другой")])],
         )
-        chunks = build_chunks(code, TOK, ChunkingParams("article", 512, 0))
-        assert [c.article for c in chunks] == ["52", "53"]
-        assert all(len(c.articles) == 1 for c in chunks)
+        assert [c.articles for c in chunks] == [("52",), ("53",)]
+        assert chunks[0].spans == (("52", "1"), ("52", "2"))
 
-    def test_article_strategy_keeps_metadata(self):
-        code = LaborCode(articles=(article("54", [("1", "текст")], title="Ограничение"),))
-        chunk = build_chunks(code, TOK, ChunkingParams("article", 512, 0))[0]
+    def test_long_article_never_crosses_into_the_next(self):
+        chunks = structured(
+            "article", [article("52", [("1", words(25, "w"))]), article("53", [("1", "x")])]
+        )
+        assert all(c.articles in (("52",), ("53",)) for c in chunks)
+        assert len([c for c in chunks if c.article == "52"]) == 3
+
+    def test_keeps_metadata(self):
+        chunk = structured("article", [article("54", [("1", "текст")], title="Ограничение")])[0]
         assert chunk.article_title == "Ограничение"
         assert chunk.chapter == "Глава 4. ТРУДОВОЙ ДОГОВОР"
 

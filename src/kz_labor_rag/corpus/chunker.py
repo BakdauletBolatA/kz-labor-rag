@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol, runtime_checkable
 
 from kz_labor_rag.corpus.parser import Article, LaborCode
@@ -253,44 +253,75 @@ def chunk_fixed_tokens(
     )
 
 
-def chunk_by_article(
-    articles: Sequence[Article], params: ChunkingParams, *, id_prefix: str = "a"
+def chunk_by_structure(
+    articles: Sequence[Article],
+    tokenizer: Tokenizer,
+    params: ChunkingParams,
+    budget: EncodingBudget | None = None,
+    *,
+    unit: str,
 ) -> list[Chunk]:
-    """Structure-aware нарезка: один чанк — одна статья.
+    """Structure-aware нарезка: один чанк — один пункт (``unit='clause'``) или
+    одна статья (``unit='article'``).
 
-    В baseline не используется.
+    Единица длиннее окна модели (ст. 52 п. 1 с перечнем оснований увольнения)
+    режется окнами фиксированной длины, но только внутри своих границ: чанк
+    никогда не смешивает два пункта или две статьи. Молча обрезать её нельзя.
 
-    Бюджет кодирования здесь не применяется: статья идёт в чанк целиком,
-    какой бы длинной она ни была. На корпусе с длинными перечнями — ст. 52 с
-    её списком оснований, ст. 32 с перечнем документов — чанк выйдет за окно
-    модели, и индексация остановится на ``assert_chunks_fit``. Падение
-    громкое, молча усечённых чанков не будет, но переключить стратегию одной
-    строкой конфига нельзя: сначала нужно решить, как резать длинную статью
-    внутри её границ — по пунктам или окнами, — и это часть самой итерации,
-    а не деталь реализации.
+    Заголовок статьи, если он включён, ставится в начало каждого окна, а не
+    только первого, и учитывается в бюджете кодирования.
     """
     chunks: list[Chunk] = []
-    for index, article in enumerate(articles):
-        text = article.full_text if params.prepend_article_header else article.text
-        if not text.strip():
-            continue
-        chunks.append(
-            Chunk(
-                chunk_id=f"{id_prefix}{index:05d}",
-                text=text.strip(),
-                articles=(article.number,),
-                spans=tuple((article.number, c.number) for c in article.clauses),
-                article_title=article.title,
-                section=article.section,
-                chapter=article.chapter,
+    prefix = "p" if unit == "clause" else "a"
+    for article in articles:
+        groups = [[c] for c in article.clauses] if unit == "clause" else [list(article.clauses)]
+        header = f"{article.heading}\n" if params.prepend_article_header else ""
+        unit_budget = budget
+        if budget is not None and header:
+            unit_budget = EncodingBudget(
+                measure=lambda text, m=budget.measure, h=header: m(h + text),
+                limit=budget.limit,
             )
-        )
+        for clauses in groups:
+            clauses = [c for c in clauses if c.text.strip()]
+            if not clauses:
+                continue
+            stream = _unit_stream(article.number, clauses)
+            label = clauses[0].number if unit == "clause" else ""
+            pieces = chunk_fixed_tokens(
+                stream,
+                tokenizer,
+                replace(params, chunk_overlap_tokens=0),
+                unit_budget,
+                id_prefix=f"{prefix}{article.number}/{label}#",
+            )
+            for piece in pieces:
+                chunks.append(
+                    replace(
+                        piece,
+                        text=header + piece.text,
+                        article_title=article.title,
+                        section=article.section,
+                        chapter=article.chapter,
+                    )
+                )
     return chunks
+
+
+def _unit_stream(article: str, clauses: Sequence) -> CorpusStream:
+    parts, segments, cursor = [], [], 0
+    for clause in clauses:
+        body = clause.text + "\n"
+        parts.append(body)
+        segments.append(Segment(article, clause.number, cursor, cursor + len(body)))
+        cursor += len(body)
+    return CorpusStream(text="".join(parts), segments=tuple(segments))
 
 
 STRATEGIES: dict[str, str] = {
     "fixed_tokens": "окна фиксированной длины по всему потоку, структура игнорируется",
-    "article": "один чанк — одна статья",
+    "clause": "один чанк — один пункт; длинный пункт режется окнами внутри себя",
+    "article": "один чанк — одна статья; длинная статья режется окнами внутри себя",
 }
 
 
@@ -310,8 +341,8 @@ def build_chunks(
     if params.strategy == "fixed_tokens":
         stream = build_stream(articles, prepend_article_header=params.prepend_article_header)
         return chunk_fixed_tokens(stream, tokenizer, params, budget)
-    if params.strategy == "article":
-        return chunk_by_article(articles, params)
+    if params.strategy in ("clause", "article"):
+        return chunk_by_structure(articles, tokenizer, params, budget, unit=params.strategy)
 
     known = ", ".join(f"'{name}'" for name in STRATEGIES)
     raise ValueError(f"неизвестная стратегия чанкинга '{params.strategy}'. Известные: {known}")
