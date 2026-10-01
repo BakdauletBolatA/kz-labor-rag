@@ -10,11 +10,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from kz_labor_rag.config import load_config
@@ -60,6 +62,11 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     cited_articles: list[str]
+    citations: list[str] = Field(default_factory=list, description="Проверенные «ст. N п. M»")
+    refused: bool = False
+    withheld: bool = Field(
+        default=False, description="Модель ответила без верной ссылки, ответ заменён отказом"
+    )
     version: str
     hits: list[ChunkHit]
     error: str | None = None
@@ -142,10 +149,65 @@ def ask(
         question=q,
         answer=generation.answer,
         cited_articles=list(generation.cited_articles),
+        citations=list(generation.citations),
+        refused=generation.refused,
+        withheld=generation.withheld,
         version=retriever.version,
         hits=_to_hits(hits),
         error=generation.error,
     )
+
+
+def _sse(event: str, data: Any) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@app.get("/ask/stream")
+def ask_stream(
+    q: str = Query(min_length=1, description="Вопрос по Трудовому кодексу"),
+    k: int | None = Query(default=None, ge=1, le=50),
+) -> StreamingResponse:
+    """Ответ по мере генерации, Server-Sent Events.
+
+    События: ``hits`` (найденные фрагменты), ``token`` (кусок текста), ``done``
+    (итог). Ссылки проверяются только когда ответ дописан, поэтому решающий
+    текст — ``done.answer``: если у ответа не нашлось ни одной верной ссылки,
+    там будет отказ и ``withheld: true``, и клиент заменяет показанный текст.
+    """
+    config, retriever, generator = _components()
+    try:
+        hits = list(retriever.search(q, k or int(config.get("retrieval.top_k"))))
+    except StoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    def events():
+        yield _sse("hits", [h.model_dump() for h in _to_hits(hits)])
+        if hasattr(generator, "stream"):
+            pieces = []
+            try:
+                for piece in generator.stream(q, hits):
+                    pieces.append(piece)
+                    yield _sse("token", {"text": piece})
+            except Exception as exc:  # noqa: BLE001 — обрыв генерации сообщается клиенту
+                yield _sse("error", {"detail": f"{type(exc).__name__}: {exc}"})
+                return
+            generation = generator.finish("".join(pieces).strip(), hits)
+        else:
+            generation = generator.generate(q, hits)
+            if generation.answer:
+                yield _sse("token", {"text": generation.answer})
+        yield _sse(
+            "done",
+            {
+                "answer": generation.answer,
+                "citations": list(generation.citations),
+                "refused": generation.refused,
+                "withheld": generation.withheld,
+                "error": generation.error,
+            },
+        )
+
+    return StreamingResponse(events(), media_type="text/event-stream")
 
 
 @app.get("/context")

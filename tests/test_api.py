@@ -150,3 +150,66 @@ class TestHealth:
         body = TestClient(api.app).get("/health").json()
         assert body["status"] == "degraded"
         assert body["index"]["built"] is False
+
+
+def sse_events(text: str) -> list[tuple[str, dict | list]]:
+    import json
+
+    events = []
+    for block in text.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines())
+        events.append((lines["event"], json.loads(lines["data"])))
+    return events
+
+
+class StreamingGenerator:
+    """Генератор с потоковым режимом, как у Ollama: куски, затем проверка ссылок."""
+
+    descriptor = {"backend": "fake-stream"}
+
+    def __init__(self, pieces):
+        self.pieces = pieces
+
+    def stream(self, question, context):
+        yield from self.pieces
+
+    def finish(self, raw, context):
+        from kz_labor_rag.eval.generator import OllamaGenerator
+
+        return OllamaGenerator.finish(self, raw, context)
+
+    model = "fake"
+
+    class _prompt:  # noqa: N801 — имитация атрибута настоящего генератора
+        label = "fake@v0"
+        sha256 = "0"
+
+
+class TestAskStream:
+    def stream(self, config, monkeypatch, generator):
+        config.data["retrieval"] = {"top_k": 5}
+        retriever = FakeRetriever({QUESTION: ranked("54/1", "52/1")})
+        monkeypatch.setattr(api, "_components", lambda: (config, retriever, generator))
+        response = TestClient(api.app).get("/ask/stream", params={"q": QUESTION})
+        assert response.headers["content-type"].startswith("text/event-stream")
+        return sse_events(response.text)
+
+    def test_hits_then_tokens_then_verdict(self, config, monkeypatch):
+        events = self.stream(
+            config, monkeypatch, StreamingGenerator(["Нельзя.", "\nИсточники: ст. 54 п. 1"])
+        )
+        assert [e for e, _ in events] == ["hits", "token", "token", "done"]
+        done = events[-1][1]
+        assert done["citations"] == ["ст. 54 п. 1"]
+        assert done["refused"] is False
+        assert done["answer"].endswith("Источники: ст. 54 п. 1")
+
+    def test_answer_without_valid_source_is_replaced_in_the_verdict(self, config, monkeypatch):
+        events = self.stream(config, monkeypatch, StreamingGenerator(["Заплатят вдвое."]))
+        done = events[-1][1]
+        assert done["withheld"] is True
+        assert done["answer"] == "В Трудовом кодексе ответа на это не нашлось."
+
+    def test_generator_without_streaming_sends_one_token(self, config, monkeypatch):
+        events = self.stream(config, monkeypatch, FakeGenerator("Нельзя (ст. 54)."))
+        assert [e for e, _ in events] == ["hits", "token", "done"]
