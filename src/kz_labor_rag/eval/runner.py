@@ -248,9 +248,13 @@ class EvalRunner:
                 "вопросам с отметкой ревью."
             )
 
+        # У вопросов без ответа в кодексе нет эталона поиска: метрики поиска
+        # считаются без них, а доля честных отказов — в оценке ответов.
+        scored = [q for q in verified if not q.is_unanswerable]
+
         started = datetime.now(UTC)
         t0 = time.perf_counter()
-        runs = [self.run_question(q) for q in verified]
+        runs = [self.run_question(q) for q in scored]
         wall = time.perf_counter() - t0
 
         by_lang = {
@@ -307,9 +311,10 @@ class EvalRunner:
                 "schema_version": dataset.schema_version,
                 "stats": dataset.stats,
                 "evaluated": {
-                    "n": len(verified),
-                    "real": sum(1 for q in verified if q.origin == "real"),
-                    "synthetic": sum(1 for q in verified if q.origin == "synthetic"),
+                    "n": len(scored),
+                    "real": sum(1 for q in scored if q.origin == "real"),
+                    "synthetic": sum(1 for q in scored if q.origin == "synthetic"),
+                    "unanswerable": len(verified) - len(scored),
                     "skipped_unverified": len(dataset.ready) - len(verified),
                 },
             },

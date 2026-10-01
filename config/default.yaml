@@ -114,12 +114,13 @@ judge:
   temperature: 0.0
 
 eval:
-  dataset: evals/datasets/kz_labor_v1.jsonl
+  dataset: evals/questions.jsonl
   results_dir: evals/results
   # k, на котором считаются recall@k, MRR и article_recall@k.
   # Меняется только вместе с бампом metrics_version.
   k: 5
-  languages: [ru, kk]
+  # Казахский срез заморожен в архивном evals/datasets/kz_labor_v1.jsonl.
+  languages: [ru]
   # Основной срез, по которому идут главные цифры в EVALUATION.md.
   primary_language: ru
   # Метрики считаются только по вопросам с отметкой ревью человеком;

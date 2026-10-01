@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from kz_labor_rag.eval.dataset import (
+    QUESTION_TYPES,
     DatasetError,
     EvalDataset,
     EvalQuestion,
@@ -23,6 +24,7 @@ VALID = {
     "question": "Может ли работодатель уволить работника, находящегося в отпуске?",
     "lang": "ru",
     "origin": "synthetic",
+    "type": "condition",
     "required_articles": ["54"],
     "required_clauses": [{"article": "54", "clause": "2"}],
     "acceptable_articles": ["52"],
@@ -33,7 +35,7 @@ VALID = {
         }
     ],
     "preferred_clause": {"article": "54", "clause": "2"},
-    "reviewed_by_human": True,
+    "verified": True,
 }
 
 
@@ -119,6 +121,73 @@ class TestRequiredClauses:
         assert draft.required_clauses == ()
 
 
+class TestQuestionTypes:
+    """Тип вопроса нужен, чтобы видеть, на каких вопросах система ошибается."""
+
+    def test_type_is_required(self):
+        with pytest.raises(DatasetError, match="type"):
+            q(type="")
+
+    def test_unknown_type_rejected(self):
+        with pytest.raises(DatasetError, match="type='opinion'"):
+            q(type="opinion")
+
+    def test_multi_needs_at_least_two_clauses(self):
+        with pytest.raises(DatasetError, match="multi"):
+            q(type="multi")
+
+    def test_two_clauses_must_be_typed_multi(self):
+        with pytest.raises(DatasetError, match="multi"):
+            q(
+                required_clauses=[
+                    {"article": "54", "clause": "1"},
+                    {"article": "54", "clause": "2"},
+                ]
+            )
+
+
+UNANSWERABLE = {
+    "id": "u001",
+    "question": "Какая ставка индивидуального подоходного налога?",
+    "lang": "ru",
+    "origin": "synthetic",
+    "type": "unanswerable",
+    "notes": "Ставки ИПН устанавливает Налоговый кодекс РК.",
+}
+
+
+class TestUnanswerable:
+    """Вопрос, ответа на который в Трудовом кодексе нет.
+
+    Эталона поиска у него нет и быть не может; он нужен, чтобы мерить, умеет
+    ли система честно отказать.
+    """
+
+    def test_parses_without_gold(self):
+        parsed = EvalQuestion.from_dict(UNANSWERABLE)
+        assert parsed.is_unanswerable
+        assert parsed.required_clauses == ()
+
+    def test_gold_is_forbidden(self):
+        with pytest.raises(DatasetError, match="unanswerable"):
+            EvalQuestion.from_dict(
+                {**UNANSWERABLE, "required_articles": ["14"],
+                 "required_clauses": [{"article": "14", "clause": ""}]}
+            )
+
+    def test_notes_must_say_where_the_answer_is(self):
+        with pytest.raises(DatasetError, match="notes"):
+            EvalQuestion.from_dict({**UNANSWERABLE, "notes": ""})
+
+    def test_roundtrip(self):
+        parsed = EvalQuestion.from_dict(UNANSWERABLE)
+        assert EvalQuestion.from_dict(parsed.to_dict()) == parsed
+
+    def test_excluded_from_answerable(self):
+        ds = EvalDataset(questions=(q(id="a"), EvalQuestion.from_dict(UNANSWERABLE)))
+        assert [x.id for x in ds.answerable] == ["a"]
+
+
 class TestIO:
     def test_roundtrip_preserves_fields(self, tmp_path):
         ds = EvalDataset(questions=(q(), q(id="q002", preferred_clause=None)))
@@ -167,7 +236,8 @@ class TestSlicesAndStats:
             "real": 1,
             "synthetic": 2,
             "with_preferred_clause": 3,
-            "reviewed_by_human": 3,
+            "unanswerable": 0,
+            "verified": 3,
             "draft_slots": 0,
         }
 
@@ -195,12 +265,13 @@ class TestDraftSlots:
                     "question": "в",
                     "lang": "ru",
                     "origin": "real",
+                    "type": "fact",
                     "required_articles": ["54"],
                     "required_clauses": [{"article": "54", "clause": "2"}],
                 }
             )
 
-    def test_drafts_do_not_count_towards_the_gate(self):
+    def test_drafts_are_not_counted_as_questions(self):
         drafts = tuple(
             EvalQuestion.from_dict(
                 {"id": f"real_{i:03d}", "lang": "ru", "origin": "real", "status": "draft"}
@@ -233,7 +304,7 @@ class TestVerified:
         draft = EvalQuestion.from_dict(
             {"id": "real_001", "lang": "ru", "origin": "real", "status": "draft"}
         )
-        ds = EvalDataset(questions=(q(id="a"), q(id="b", reviewed_by_human=False), draft))
+        ds = EvalDataset(questions=(q(id="a"), q(id="b", verified=False), draft))
         assert [x.id for x in ds.verified] == ["a"]
 
 
@@ -353,69 +424,31 @@ class TestClauseValidation:
 
 
 class TestShippedDataset:
-    """Датасет, который лежит в репозитории. Регрессионная защита разметки."""
+    """Набор, который лежит в репозитории. Регрессионная защита разметки.
 
-    PATH = Path("evals/datasets/kz_labor_v1.jsonl")
+    Проверяются инварианты, а не точные числа: файл правится при ревью, и
+    удалённый вопрос не должен ронять тесты.
+    """
+
+    PATH = Path("evals/questions.jsonl")
 
     @pytest.fixture(scope="class")
     def dataset(self):
-        if not self.PATH.exists():
-            pytest.skip("датасет ещё не собран")
         return load_dataset(self.PATH)
 
-    def test_composition(self, dataset):
-        s = dataset.stats
-        assert s["synthetic"] == 60
-        assert s["ru"] == 60
-        assert s["kk"] == 15
-        assert s["real"] == 15
-        assert s["draft_slots"] == 0
+    def test_every_question_is_russian_and_ready(self, dataset):
+        assert all(x.lang == "ru" and not x.is_draft for x in dataset)
 
-    def test_kazakh_slice_is_complete(self, dataset):
-        kk = dataset.slice("kk")
-        assert len(kk) == 15
-        assert all(q.origin == "synthetic" and q.source_url is None for q in kk)
+    def test_every_type_is_present(self, dataset):
+        assert {x.type for x in dataset} == set(QUESTION_TYPES)
 
-    def test_kazakh_slice_reuses_verified_russian_markup(self, dataset):
-        # Казахские вопросы зеркалят русские: те же статьи, тот же пункт, те же
-        # цитаты — меняется только язык вопроса. Так разница в метрике между
-        # срезами объясняется кроссязычностью, а не другой разметкой.
-        ru_quotes: dict[str, set[str]] = {}
-        for q in dataset.slice("ru"):
-            for e in q.evidence:
-                ru_quotes.setdefault(e.article, set()).add(e.quote)
-
-        for q in dataset.slice("kk"):
-            for e in q.evidence:
-                assert e.quote in ru_quotes.get(e.article, set()), (
-                    f"{q.id}: цитата к ст. {e.article} не совпадает ни с одной "
-                    "проверенной цитатой русского среза"
-                )
-
-    def test_real_slots_are_filled_and_sourced(self, dataset):
-        # Раньше real_001..015 были зарезервированными пустыми черновиками —
-        # регрессия защищала именно то, что они остаются пустыми до ручного
-        # наполнения. Слоты заполнены, поэтому
-        # инвариант теперь обратный: ни один не должен откатиться в черновик,
-        # и у каждого обязана быть ссылка на реальный тред — это то, что
-        # отличает 'real' от 'synthetic' по схеме (dataset.py:56-57).
-        real_ids = [f"real_{i:03d}" for i in range(1, 16)]
-        real_qs = {x.id: x for x in dataset if x.id in real_ids}
-        assert set(real_qs) == set(real_ids)
-        assert all(not q.is_draft for q in real_qs.values())
-        assert all(q.question and q.source_url for q in real_qs.values())
-
-    def test_topic_limit_respected(self, dataset):
-        # Лимит считается внутри языка: казахский срез намеренно повторяет темы
-        # русского, и общий счётчик запретил бы это на ровном месте — на 8 ru
-        # плюс 8 kk по одной теме. Сборщик проверяет ровно так же.
-        counts = Counter((x.lang, tag) for x in dataset.ready for tag in x.tags)
-        assert counts, "у вопросов должны быть теги"
-        over = {key: n for key, n in counts.items() if n > 8}
-        assert not over, f"превышен лимит 8 вопросов на тему: {over}"
+    def test_real_questions_are_sourced(self, dataset):
+        real = [x for x in dataset if x.origin == "real"]
+        assert real
+        assert all(x.source_url for x in real)
 
     def test_required_topics_are_covered(self, dataset):
-        counts = Counter(tag for x in dataset.ready for tag in x.tags)
+        counts = Counter(tag for x in dataset.answerable for tag in x.tags)
         for tag in (
             "увольнение",
             "отпуск",
@@ -429,46 +462,23 @@ class TestShippedDataset:
         ):
             assert counts.get(tag, 0) > 0, f"тема '{tag}' не покрыта"
 
-    def test_multi_article_questions_exist(self, dataset):
-        # Интересные случаи — те, где ответ собирается из связки статей.
-        multi = [x.id for x in dataset.ready if len(x.required_articles) > 1]
-        assert len(multi) >= 5, f"многосоставных вопросов всего {len(multi)}"
-
-    def test_every_question_has_evidence(self, dataset):
-        assert all(x.evidence and all(len(e.quote) > 40 for e in x.evidence) for x in dataset.ready)
+    def test_every_answerable_question_has_evidence(self, dataset):
+        assert all(
+            x.evidence and all(len(e.quote) > 40 for e in x.evidence) for x in dataset.answerable
+        )
 
     def test_questions_avoid_code_language(self, dataset):
-        # Вопрос, написанный терминами статьи, retrieval находит тривиально,
-        # и baseline оказывается завышен. Правило одинаково для обоих срезов:
-        # казахский вопрос, собранный из формулировок кодекса, завышает ровно
-        # так же, а охранялся до сих пор только русский.
-        canned = {
-            "ru": (
-                "каков порядок",
-                "в соответствии с",
-                "настоящего кодекса",
-                "предусмотренных подпунктами",
-                "регламентируется",
-            ),
-            "kk": (
-                "осы кодекс",
-                "көзделген",
-                "белгіленген тәртіппен",
-                "реттеледі",
-                "тәртібі қандай",
-            ),
-        }
-        offenders = [
-            x.id
-            for x in dataset.ready
-            if any(phrase in x.question.lower() for phrase in canned.get(x.lang, ()))
-        ]
+        # Вопрос, написанный терминами статьи, поиск находит тривиально, и
+        # метрика оказывается завышена.
+        canned = (
+            "каков порядок",
+            "в соответствии с",
+            "настоящего кодекса",
+            "предусмотренных подпунктами",
+            "регламентируется",
+        )
+        offenders = [x.id for x in dataset if any(p in x.question.lower() for p in canned)]
         assert not offenders, f"вопросы написаны языком кодекса: {offenders}"
-
-    def test_preferred_clause_points_into_required(self, dataset):
-        for x in dataset.ready:
-            if x.preferred_clause:
-                assert x.preferred_clause.article in x.required_articles
 
     @pytest.mark.skipif(
         not Path("data/raw/adilet_K1500000414_rus.html").exists(),

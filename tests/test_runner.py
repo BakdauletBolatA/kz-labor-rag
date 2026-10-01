@@ -15,10 +15,11 @@ BASE = {
     "question": "Может ли работодатель уволить работника в отпуске?",
     "lang": "ru",
     "origin": "synthetic",
+    "type": "condition",
     "required_articles": ["54"],
     "required_clauses": [{"article": "54", "clause": "1"}],
     "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
-    "reviewed_by_human": True,
+    "verified": True,
 }
 
 
@@ -51,7 +52,7 @@ class TestOnlyVerifiedQuestionsAreCounted:
             questions=(
                 q("r1", question="в1"),
                 q("r2", question="в2", origin="real"),
-                q("r3", question="в3", reviewed_by_human=False),
+                q("r3", question="в3", verified=False),
             )
         )
         result = EvalRunner(config, FakeRetriever({})).run(ds)
@@ -61,13 +62,31 @@ class TestOnlyVerifiedQuestionsAreCounted:
             "n": 2,
             "real": 1,
             "synthetic": 1,
+            "unanswerable": 0,
             "skipped_unverified": 1,
         }
 
     def test_no_verified_questions_stops_the_run(self, config):
-        ds = EvalDataset(questions=(q("r1", reviewed_by_human=False),))
+        ds = EvalDataset(questions=(q("r1", verified=False),))
         with pytest.raises(NoVerifiedQuestionsError, match="ни одного проверенного"):
             EvalRunner(config, FakeRetriever({})).run(ds)
+
+    def test_unanswerable_questions_are_counted_but_not_scored(self, config):
+        unanswerable = EvalQuestion.from_dict(
+            {
+                "id": "u1",
+                "question": "Какая ставка ИПН?",
+                "lang": "ru",
+                "origin": "synthetic",
+                "type": "unanswerable",
+                "notes": "Налоговый кодекс",
+                "verified": True,
+            }
+        )
+        ds = EvalDataset(questions=(q("r1"), unanswerable))
+        result = EvalRunner(config, FakeRetriever({})).run(ds)
+        assert result["aggregates"]["primary"]["n"] == 1
+        assert result["dataset"]["evaluated"]["unanswerable"] == 1
 
     def test_drafts_are_not_counted_as_skipped(self, config):
         draft = EvalQuestion.from_dict(
@@ -270,22 +289,22 @@ class TestResultShape:
 class TestReviewFlag:
     def test_default_is_unreviewed(self):
         # Дефолт false: вопрос считается непроверенным, пока не сказано обратное.
-        raw = {k: v for k, v in BASE.items() if k != "reviewed_by_human"}
-        assert EvalQuestion.from_dict({"id": "r1", **raw}).reviewed_by_human is False
+        raw = {k: v for k, v in BASE.items() if k != "verified"}
+        assert EvalQuestion.from_dict({"id": "r1", **raw}).verified is False
 
     def test_review_flag_survives_roundtrip(self, tmp_path):
         from kz_labor_rag.eval.dataset import load_dataset, save_dataset
 
         ds = EvalDataset(
             questions=(
-                q("r1", question="в", reviewed_by_human=True),
-                q("r2", question="в2", reviewed_by_human=False),
+                q("r1", question="в", verified=True),
+                q("r2", question="в2", verified=False),
             )
         )
         path = tmp_path / "ds.jsonl"
         save_dataset(ds, path)
         loaded = load_dataset(path)
-        assert [x.reviewed_by_human for x in loaded] == [True, False]
+        assert [x.verified for x in loaded] == [True, False]
 
 
 class TestRecallIsCountedInClauses:

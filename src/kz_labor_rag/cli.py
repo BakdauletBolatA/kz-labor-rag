@@ -115,6 +115,7 @@ def _print_aggregates(result: dict) -> None:
         print(
             f"Посчитано по {evaluated['n']} проверенным вопросам "
             f"(real {evaluated['real']}, synthetic {evaluated['synthetic']}); "
+            f"без ответа в кодексе: {evaluated.get('unanswerable', 0)}; "
             f"непроверенных пропущено: {evaluated['skipped_unverified']}"
         )
     for lang, agg in result["aggregates"]["by_language"].items():

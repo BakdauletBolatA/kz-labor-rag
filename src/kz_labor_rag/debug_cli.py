@@ -114,7 +114,7 @@ def cmd_search(args) -> int:
 
     if args.failures or args.question:
         dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
-        selected = [q for q in dataset.ready if not args.question or q.id == args.question]
+        selected = [q for q in dataset.answerable if not args.question or q.id == args.question]
         if args.question and not selected:
             print(f"Вопроса {args.question} нет в датасете", file=sys.stderr)
             return 1

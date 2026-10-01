@@ -20,7 +20,12 @@ Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
 Status = Literal["ready", "draft"]
 
-DATASET_SCHEMA_VERSION = "3.0"
+# fact — прямой факт; number — «сколько дней/часов», сроки и пределы;
+# condition — условия и исключения; multi — ответ из двух и более пунктов;
+# unanswerable — ответа в Трудовом кодексе нет.
+QUESTION_TYPES = ("fact", "number", "condition", "multi", "unanswerable")
+
+DATASET_SCHEMA_VERSION = "4.0"
 
 
 class DatasetError(ValueError):
@@ -57,6 +62,13 @@ class EvalQuestion:
     recall@k и MRR. Это не ручная разметка поверх цитат, а их следствие: пункт,
     в котором лежит процитированный фрагмент.
 
+    ``type`` — один из ``QUESTION_TYPES``. У вопроса типа ``unanswerable``
+    эталона поиска нет, зато в ``notes`` обязано быть сказано, где ответ на
+    самом деле (другой кодекс или закон).
+
+    ``verified`` — разметку проверил человек. Метрики считаются только по таким
+    вопросам.
+
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
 
@@ -73,18 +85,23 @@ class EvalQuestion:
     origin: Origin
     required_articles: tuple[str, ...]
     evidence: tuple[EvidenceQuote, ...]
+    type: str = ""
     required_clauses: tuple[ClauseRef, ...] = ()
     acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
     status: Status = "ready"
-    reviewed_by_human: bool = False
+    verified: bool = False
     notes: str = ""
     tags: tuple[str, ...] = ()
 
     @property
     def is_draft(self) -> bool:
         return self.status == "draft"
+
+    @property
+    def is_unanswerable(self) -> bool:
+        return self.type == "unanswerable"
 
     @classmethod
     def from_dict(cls, raw: dict, *, source: str = "<dict>") -> EvalQuestion:
@@ -98,10 +115,15 @@ class EvalQuestion:
         if not raw.get("id"):
             fail("обязательное поле 'id' пусто или отсутствует")
 
+        qtype = raw.get("type") or ""
+        unanswerable = qtype == "unanswerable"
         if status == "ready":
-            for key in ("question", "lang", "origin", "required_articles", "evidence"):
+            gold = () if unanswerable else ("required_articles", "evidence")
+            for key in ("question", "lang", "origin", "type", *gold):
                 if not raw.get(key):
                     fail(f"обязательное поле '{key}' пусто или отсутствует")
+            if qtype not in QUESTION_TYPES:
+                fail(f"type='{qtype}', допустимы: {', '.join(QUESTION_TYPES)}")
         elif not raw.get("lang") or not raw.get("origin"):
             fail("даже у черновика должны быть заполнены 'lang' и 'origin'")
 
@@ -127,7 +149,7 @@ class EvalQuestion:
             EvidenceQuote(article=e["article"], quote=e["quote"])
             for e in (raw.get("evidence") or ())
         )
-        if status == "ready":
+        if status == "ready" and not unanswerable:
             covered = {e.article for e in evidence}
             if missing := [a for a in required if a not in covered]:
                 fail(
@@ -145,7 +167,7 @@ class EvalQuestion:
             ClauseRef(article=c["article"], clause=str(c["clause"]))
             for c in (raw.get("required_clauses") or ())
         )
-        if status == "ready":
+        if status == "ready" and not unanswerable:
             if not required_clauses:
                 fail("обязательное поле 'required_clauses' пусто или отсутствует")
             if stray := [str(c) for c in required_clauses if c.article not in required]:
@@ -153,6 +175,11 @@ class EvalQuestion:
             with_clause = {c.article for c in required_clauses}
             if bare := [a for a in required if a not in with_clause]:
                 fail(f"у обязательных статей {bare} нет ни одного пункта в required_clauses")
+            if (qtype == "multi") != (len(required_clauses) >= 2):
+                fail(
+                    f"type='{qtype}' при {len(required_clauses)} обязательных пунктах: "
+                    "тип 'multi' ставится ровно тогда, когда пунктов два и больше"
+                )
 
         preferred = None
         if pc := raw.get("preferred_clause"):
@@ -167,6 +194,15 @@ class EvalQuestion:
             if required_clauses and preferred not in required_clauses:
                 fail(f"preferred_clause {preferred} не входит в required_clauses")
 
+        if unanswerable:
+            if required or acceptable or evidence or required_clauses or preferred:
+                fail(
+                    "у вопроса типа unanswerable не бывает эталона: required_*, "
+                    "acceptable_articles, evidence и preferred_clause должны быть пусты"
+                )
+            if not str(raw.get("notes") or "").strip():
+                fail("у вопроса типа unanswerable в notes должно быть сказано, где ответ")
+
         return cls(
             id=str(raw["id"]),
             question=str(raw.get("question") or "").strip(),
@@ -174,12 +210,13 @@ class EvalQuestion:
             origin=raw["origin"],
             required_articles=required,
             evidence=evidence,
+            type=qtype,
             required_clauses=required_clauses,
             acceptable_articles=acceptable,
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
             status=status,
-            reviewed_by_human=bool(raw.get("reviewed_by_human", False)),
+            verified=bool(raw.get("verified", False)),
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
         )
@@ -191,6 +228,7 @@ class EvalQuestion:
             "id": self.id,
             "question": self.question,
             "origin": self.origin,
+            "type": self.type,
             "source_url": self.source_url,
             "required_articles": list(self.required_articles),
             "acceptable_articles": list(self.acceptable_articles),
@@ -209,7 +247,7 @@ class EvalQuestion:
             "lang": self.lang,
             "evidence": [{"article": e.article, "quote": e.quote} for e in self.evidence],
             "status": self.status,
-            "reviewed_by_human": self.reviewed_by_human,
+            "verified": self.verified,
         }
         if self.notes:
             out["notes"] = self.notes
@@ -251,7 +289,12 @@ class EvalDataset:
     @property
     def verified(self) -> tuple[EvalQuestion, ...]:
         """Готовые вопросы, разметку которых проверил человек. Метрики — только по ним."""
-        return tuple(q for q in self.ready if q.reviewed_by_human)
+        return tuple(q for q in self.ready if q.verified)
+
+    @property
+    def answerable(self) -> tuple[EvalQuestion, ...]:
+        """Готовые вопросы, у которых есть эталон поиска."""
+        return tuple(q for q in self.ready if not q.is_unanswerable)
 
     @property
     def stats(self) -> dict[str, int]:
@@ -265,7 +308,8 @@ class EvalDataset:
             "real": by_origin["real"],
             "synthetic": by_origin["synthetic"],
             "with_preferred_clause": sum(1 for q in ready if q.preferred_clause),
-            "reviewed_by_human": sum(1 for q in ready if q.reviewed_by_human),
+            "unanswerable": sum(1 for q in ready if q.is_unanswerable),
+            "verified": sum(1 for q in ready if q.verified),
             "draft_slots": len(self.questions) - len(ready),
         }
 
