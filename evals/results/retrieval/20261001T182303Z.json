@@ -1,0 +1,5002 @@
+{
+  "rows": [
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "dense",
+      "n": 3,
+      "recall@5": 0.6666666666666666,
+      "strict_hit@5": 0.6666666666666666,
+      "mrr": 0.5,
+      "article_recall@5": 0.6666666666666666,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 58.08345798868686,
+          "p95": 59.01034550042823
+        },
+        "dense": {
+          "p50": 58.077333960682154,
+          "p95": 58.99045781116001
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "new_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "bm25-lemma",
+      "n": 3,
+      "recall@5": 0.3333333333333333,
+      "strict_hit@5": 0.3333333333333333,
+      "mrr": 0.3333333333333333,
+      "article_recall@5": 0.3333333333333333,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 0.2752909786067903,
+          "p95": 0.4263415699824691
+        },
+        "bm25": {
+          "p50": 0.2740829950198531,
+          "p95": 0.4232579784002155
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "new_001",
+        "syn_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "bm25-stem",
+      "n": 3,
+      "recall@5": 0.5,
+      "strict_hit@5": 0.3333333333333333,
+      "mrr": 0.4166666666666667,
+      "article_recall@5": 0.5,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 0.21620799088850617,
+          "p95": 0.31374547397717834
+        },
+        "bm25": {
+          "p50": 0.2150830114260316,
+          "p95": 0.31179608195088804
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "syn_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "hybrid",
+      "n": 3,
+      "recall@5": 0.5,
+      "strict_hit@5": 0.3333333333333333,
+      "mrr": 0.5,
+      "article_recall@5": 0.5,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 58.48541698651388,
+          "p95": 58.9150914165657
+        },
+        "dense": {
+          "p50": 57.96129099326208,
+          "p95": 58.523266325937584
+        },
+        "bm25": {
+          "p50": 0.43720798566937447,
+          "p95": 0.44632047647610307
+        },
+        "fusion": {
+          "p50": 0.05866697756573558,
+          "p95": 0.06657886551693082
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "syn_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "dense+rerank",
+      "n": 3,
+      "recall@5": 0.6666666666666666,
+      "strict_hit@5": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "article_recall@5": 0.6666666666666666,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 6534.9773750058375,
+          "p95": 6561.293113074498
+        },
+        "dense": {
+          "p50": 52.37708397908136,
+          "p95": 65.68050782661885
+        },
+        "rerank": {
+          "p50": 6484.172791999299,
+          "p95": 6495.729766692966
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "new_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "e5-base",
+      "method": "hybrid+rerank",
+      "n": 3,
+      "recall@5": 0.6666666666666666,
+      "strict_hit@5": 0.6666666666666666,
+      "mrr": 0.6666666666666666,
+      "article_recall@5": 0.6666666666666666,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 6904.287958983332,
+          "p95": 6998.188183712773
+        },
+        "dense": {
+          "p50": 51.307042012922466,
+          "p95": 57.08282892010175
+        },
+        "bm25": {
+          "p50": 0.43516699224710464,
+          "p95": 0.5261416547000408
+        },
+        "fusion": {
+          "p50": 0.05745800444856286,
+          "p95": 0.06792139611206949
+        },
+        "rerank": {
+          "p50": 6852.5816250476055,
+          "p95": 6948.745799675817
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "new_001"
+      ]
+    },
+    {
+      "chunking": "fixed512",
+      "embeddings": "bge-m3",
+      "method": "dense",
+      "n": 3,
+      "recall@5": 0.6666666666666666,
+      "strict_hit@5": 0.6666666666666666,
+      "mrr": 0.4166666666666667,
+      "article_recall@5": 0.6666666666666666,
+      "latency_ms": {
+        "retrieval": {
+          "p50": 144.65179096441716,
+          "p95": 181.5714793978259
+        },
+        "dense": {
+          "p50": 144.6475830161944,
+          "p95": 181.56284611904994
+        }
+      },
+      "chunks": 143,
+      "chunking_signature": "4d4ae0162b8c9a49",
+      "failures": [
+        "new_001"
+      ]
+    }
+  ],
+  "runs": {
+    "fixed512/e5-base/dense": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:18:04.444213+00:00",
+      "version": "fixed512/e5-base/dense",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "237aabd3825f0ab5ed5dd040efe94158a105ba96",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "3bee154e0da01ccf",
+      "config": {
+        "version": "fixed512/e5-base/dense",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "dense",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": false,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/dense",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.6666666666666666,
+          "strict_hit@5": 0.6666666666666666,
+          "mrr": 0.5,
+          "article_recall@5": 0.6666666666666666,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "new_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.5,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.5,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 0.17
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00077",
+              "article": "123",
+              "articles": [
+                "123",
+                "124",
+                "124-1",
+                "124-2",
+                "125"
+              ],
+              "clauses": [
+                "123/8",
+                "124/1",
+                "124/2",
+                "124/3",
+                "124-1/",
+                "124-2/",
+                "125/"
+              ],
+              "score": 0.8195634132493563,
+              "preview": "нных работодателем или принимающей стороной работнику, работнику направляющей стороны в пользование; 5) нарушения условия о неконкуренции, которое повлекло причинение ущерба для работодателя или принимающей стороны; 6) в иных случаях, огово"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00062",
+              "article": "95",
+              "articles": [
+                "95",
+                "96",
+                "97",
+                "98"
+              ],
+              "clauses": [
+                "95/4",
+                "96/1",
+                "96/2",
+                "97/1",
+                "97/2",
+                "97/3",
+                "97/4",
+                "98/1",
+                "98/2"
+              ],
+              "score": 0.8153280129833228,
+              "preview": "ых работах, работах с вредными и (или) опасными условиями труда.\nОплачиваемый ежегодный трудовой отпуск с последующим прекращением трудового договора в связи с истечением его срока может предоставляться в случае, когда время отпуска полност"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00072",
+              "article": "114",
+              "articles": [
+                "114",
+                "115",
+                "116"
+              ],
+              "clauses": [
+                "114/3",
+                "115/1",
+                "115/2",
+                "115/3",
+                "116/"
+              ],
+              "score": 0.8152547478675842,
+              "preview": "средней заработной платы, предусмотренных настоящим Кодексом, уполномоченным государственным органом по труду устанавливается единый порядок ее исчисления.\nУдержания из заработной платы работника производятся по решению суда, а также в случ"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00046",
+              "article": "60",
+              "articles": [
+                "60",
+                "61",
+                "62",
+                "63",
+                "64",
+                "65"
+              ],
+              "clauses": [
+                "60/",
+                "61/1",
+                "61/2",
+                "61/3",
+                "62/1",
+                "62/2",
+                "62/3",
+                "63/1",
+                "63/2",
+                "64/1",
+                "64/2",
+                "65/1"
+              ],
+              "score": 0.8140267840607905,
+              "preview": "предусмотренных настоящим Кодексом, законами Республики Казахстан и иными нормативными правовыми актами Республики Казахстан.\nПрекращение трудового договора оформляется актом работодателя, за исключением прекращения трудового договора в слу"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00070",
+              "article": "111",
+              "articles": [
+                "111",
+                "112",
+                "113"
+              ],
+              "clauses": [
+                "111/2",
+                "111/3",
+                "111/4",
+                "112/1",
+                "112/2",
+                "113/1",
+                "113/2"
+              ],
+              "score": 0.8136856666990732,
+              "preview": "2) расширения зон обслуживания – выполнения работником наряду со своей основной работой, предусмотренной трудовым договором (должностной инструкцией), дополнительной работы в течение установленной продолжительности рабочего дня (смены); 3) "
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "123",
+              "124",
+              "124-1",
+              "124-2",
+              "125",
+              "95",
+              "96",
+              "97",
+              "98",
+              "114",
+              "115",
+              "116",
+              "60",
+              "61",
+              "62",
+              "63",
+              "64",
+              "65",
+              "111",
+              "112",
+              "113"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 59.113333001732826,
+            "dense": 59.091916016768664
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 0.8464759771256535,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 0.816625224057574,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.8077522263969985,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00063",
+              "article": "98",
+              "articles": [
+                "98",
+                "99"
+              ],
+              "clauses": [
+                "98/2",
+                "98/3",
+                "99/1",
+                "99/2"
+              ],
+              "score": 0.7770025995966728,
+              "preview": ", коллективным, трудовым договорами, договором обучения.\nРаботодатель предоставляет работникам, направленным на обучение, стажировку за рубежом в рамках международной стипендии \"Болашак\", учебные отпуска с сохранением места работы (должност"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00049",
+              "article": "66",
+              "articles": [
+                "66",
+                "67",
+                "68"
+              ],
+              "clauses": [
+                "66/3",
+                "66/4",
+                "66/5",
+                "67/1",
+                "67/2",
+                "68/1",
+                "68/2",
+                "68/3",
+                "68/4"
+              ],
+              "score": 0.7762609986947832,
+              "preview": ", в отношении лиц, допустивших нарушения требований по безопасности и охране труда. 8) признания профессиональной квалификации согласно Закону Республики Казахстан \"О профессиональных квалификациях\"; 9) нахождения работника, проходящего вои"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "82",
+              "83",
+              "84",
+              "85",
+              "134",
+              "98",
+              "99",
+              "66",
+              "67",
+              "68"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 58.08345798868686,
+            "dense": 58.077333960682154
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00036",
+              "article": "46",
+              "articles": [
+                "46",
+                "47",
+                "48"
+              ],
+              "clauses": [
+                "46/2",
+                "46/3",
+                "47/",
+                "48/1",
+                "48/2",
+                "48/3"
+              ],
+              "score": 0.8227672086496839,
+              "preview": ", произошедшем по причинам, указанным в пункте 1 настоящей статьи, не позднее чем за пятнадцать календарных дней, если трудовым, коллективным договорами не предусмотрен более длительный срок уведомления.\nВ случае письменного отказа работник"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00043",
+              "article": "53",
+              "articles": [
+                "53",
+                "54",
+                "55",
+                "56"
+              ],
+              "clauses": [
+                "53/12",
+                "54/1",
+                "54/2",
+                "55/1",
+                "55/1-1",
+                "55/2",
+                "56/1",
+                "56/2",
+                "56/3"
+              ],
+              "score": 0.8137575387954712,
+              "preview": ", 10) и 12) части первой статьи 35 или статьи 36 Уголовно-процессуального кодекса Республики Казахстан.\nНе допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности и пребывания работника в "
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00058",
+              "article": "85",
+              "articles": [
+                "85",
+                "86",
+                "87"
+              ],
+              "clauses": [
+                "85/1",
+                "85/2",
+                "85/3",
+                "85/4",
+                "86/",
+                "87/1",
+                "87/2",
+                "87/3",
+                "87/4",
+                "87/5"
+              ],
+              "score": 0.8122525438961392,
+              "preview": "е работников и издание акта работодателя не требуются. Работа в выходные и праздничные дни допускается с письменного согласия работника или по его просьбе на основании акта работодателя, за исключением случаев, предусмотренных статьей 86 на"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00038",
+              "article": "51",
+              "articles": [
+                "51",
+                "52"
+              ],
+              "clauses": [
+                "51/2",
+                "51/3",
+                "51/4",
+                "52/1"
+              ],
+              "score": 0.811718236701595,
+              "preview": "ку о беременности сроком двенадцать и более недель, а также работник, имеющий ребенка в возрасте до трех лет, усыновивший (удочеривший) ребенка и пожелавший использовать свое право на отпуск без сохранения заработной платы по уходу за ребен"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00035",
+              "article": "43",
+              "articles": [
+                "43",
+                "44",
+                "45",
+                "46"
+              ],
+              "clauses": [
+                "43/1",
+                "43/2",
+                "44/",
+                "45/1",
+                "45/2",
+                "46/1",
+                "46/2"
+              ],
+              "score": 0.8112935423851013,
+              "preview": "ным договором не предусмотрены иные условия, улучшающие положение работника.\nВ случае письменного отказа работника от временного перевода на другую не противопоказанную по состоянию здоровья работу либо при наличии акта, удостоверяющего отк"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 0.5,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "46",
+              "47",
+              "48",
+              "53",
+              "54",
+              "55",
+              "56",
+              "85",
+              "86",
+              "87",
+              "51",
+              "52",
+              "43",
+              "44",
+              "45"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 50.97170901717618,
+            "dense": 50.96899997442961
+          }
+        }
+      ]
+    },
+    "fixed512/e5-base/bm25-lemma": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:18:05.228009+00:00",
+      "version": "fixed512/e5-base/bm25-lemma",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "237aabd3825f0ab5ed5dd040efe94158a105ba96",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "55eff65421540b9c",
+      "config": {
+        "version": "fixed512/e5-base/bm25-lemma",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "bm25",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": false,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/bm25-lemma",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.3333333333333333,
+          "strict_hit@5": 0.3333333333333333,
+          "mrr": 0.3333333333333333,
+          "article_recall@5": 0.3333333333333333,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "new_001",
+            "syn_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.3333333333333333,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.3333333333333333,
+            "article_recall@5": 0.3333333333333333,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001",
+              "syn_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.3333333333333333,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.3333333333333333,
+            "article_recall@5": 0.3333333333333333,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001",
+              "syn_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 0.0
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00111",
+              "article": "166",
+              "articles": [
+                "166",
+                "167"
+              ],
+              "clauses": [
+                "166/2",
+                "166/3",
+                "166/4",
+                "166/5",
+                "166/5-1",
+                "166/6",
+                "166/7",
+                "166/8",
+                "166/9",
+                "167/1",
+                "167/2"
+              ],
+              "score": 7.387833745694165,
+              "preview": "и регулированию социальных и трудовых отношений. Члены трехсторонних комиссий, представляющие стороны социального партнерства, включаются в состав трудового арбитража на паритетной основе. По рассматриваемым требованиям работников члены при"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00125",
+              "article": "186",
+              "articles": [
+                "186",
+                "187"
+              ],
+              "clauses": [
+                "186/2",
+                "186/3",
+                "186/4",
+                "186/5",
+                "186/6",
+                "186/7",
+                "187/1"
+              ],
+              "score": 5.611988187680311,
+              "preview": "или принимающей стороной.\nНе подлежат учету как несчастные случаи, связанные с трудовой деятельностью, повреждения здоровья работников, работников направляющей стороны, в ходе расследования которых объективно установлено, что они произошли:"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00113",
+              "article": "171",
+              "articles": [
+                "171",
+                "172"
+              ],
+              "clauses": [
+                "171/1",
+                "171/2",
+                "171/3",
+                "171/4",
+                "171/5",
+                "172/1",
+                "172/2"
+              ],
+              "score": 5.389684764320261,
+              "preview": "ники могут принять решение о проведении забастовки, если посредством примирительных процедур не удалось добиться разрешения коллективного трудового спора, а также в случаях уклонения работодателя от примирительных процедур либо невыполнения"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00114",
+              "article": "172",
+              "articles": [
+                "172",
+                "173"
+              ],
+              "clauses": [
+                "172/2",
+                "173/1",
+                "173/2",
+                "173/3",
+                "173/4"
+              ],
+              "score": 5.331100065198918,
+              "preview": "товки указываются: 1) перечень разногласий сторон, являющихся основанием для проведения забастовки; 2) дата, место и время начала забастовки, предполагаемое количество участников; 3) наименование органа, возглавляющего забастовку, состав пр"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00087",
+              "article": "137-1",
+              "articles": [
+                "137-1"
+              ],
+              "clauses": [
+                "137-1/2",
+                "137-1/3",
+                "137-1/4",
+                "137-1/5",
+                "137-1/6"
+              ],
+              "score": 5.260796850671654,
+              "preview": "направляющей стороны к принимающей стороне допускается после подписания работником и направляющей стороной трудового договора либо дополнительного соглашения к трудовому договору с указанием места выполнения работы у принимающей стороны. На"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "166",
+              "167",
+              "186",
+              "187",
+              "171",
+              "172",
+              "173",
+              "137-1"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 0.44312496902421117,
+            "bm25": 0.4398329765535891
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 7.379082963791308,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 6.627741455618887,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 5.948706805459005,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 5.060340637582355,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00038",
+              "article": "51",
+              "articles": [
+                "51",
+                "52"
+              ],
+              "clauses": [
+                "51/2",
+                "51/3",
+                "51/4",
+                "52/1"
+              ],
+              "score": 4.908195313913284,
+              "preview": "ку о беременности сроком двенадцать и более недель, а также работник, имеющий ребенка в возрасте до трех лет, усыновивший (удочеривший) ребенка и пожелавший использовать свое право на отпуск без сохранения заработной платы по уходу за ребен"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "82",
+              "83",
+              "84",
+              "85",
+              "134",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "51",
+              "52"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 0.14820898650214076,
+            "bm25": 0.14666601782664657
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00089",
+              "article": "137-1",
+              "articles": [
+                "137-1",
+                "138"
+              ],
+              "clauses": [
+                "137-1/11",
+                "137-1/12",
+                "137-1/13",
+                "137-1/14",
+                "138/1",
+                "138/2",
+                "138/3"
+              ],
+              "score": 3.5730836714536527,
+              "preview": "каждым работником направляющей стороны.\nВ случае нарушения работником направляющей стороны трудовой дисциплины принимающая сторона в течение пяти рабочих дней со дня обнаружения данного факта уведомляет направляющую сторону для принятия реш"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00086",
+              "article": "135",
+              "articles": [
+                "135",
+                "136",
+                "137",
+                "137-1"
+              ],
+              "clauses": [
+                "135/7",
+                "136/1",
+                "136/2",
+                "136/3",
+                "136/4",
+                "137/1",
+                "137/2",
+                "137/3",
+                "137-1/1",
+                "137-1/2"
+              ],
+              "score": 3.5158880711212563,
+              "preview": "товым методом в ночное время, выходные и праздничные дни, производится не позже даты выплаты заработной платы за отработанный месяц, предусмотренной трудовым, коллективным договорами.\nДомашними работниками признаются работники, выполняющие "
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00071",
+              "article": "113",
+              "articles": [
+                "113",
+                "114"
+              ],
+              "clauses": [
+                "113/2",
+                "113/3",
+                "113/4",
+                "114/1",
+                "114/2",
+                "114/3"
+              ],
+              "score": 3.4881474910852406,
+              "preview": "о извещать каждого работника о составных частях заработной платы, причитающейся ему за соответствующий период, размерах и основаниях произведенных удержаний, в том числе сведения об удержанных и перечисленных обязательных пенсионных взносах"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00070",
+              "article": "111",
+              "articles": [
+                "111",
+                "112",
+                "113"
+              ],
+              "clauses": [
+                "111/2",
+                "111/3",
+                "111/4",
+                "112/1",
+                "112/2",
+                "113/1",
+                "113/2"
+              ],
+              "score": 3.4834828592120997,
+              "preview": "2) расширения зон обслуживания – выполнения работником наряду со своей основной работой, предусмотренной трудовым договором (должностной инструкцией), дополнительной работы в течение установленной продолжительности рабочего дня (смены); 3) "
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00006",
+              "article": "1",
+              "articles": [
+                "1"
+              ],
+              "clauses": [
+                "1/1"
+              ],
+              "score": 3.2363901753889195,
+              "preview": "ухудшению здоровья или отравлению работника, в результате которых наступают временная или стойкая утрата трудоспособности, профессиональное заболевание либо смерть; 55) опасный производственный фактор – производственный фактор, воздействие "
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "137-1",
+              "138",
+              "135",
+              "136",
+              "137",
+              "113",
+              "114",
+              "111",
+              "112",
+              "1"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 0.2752909786067903,
+            "bm25": 0.2740829950198531
+          }
+        }
+      ]
+    },
+    "fixed512/e5-base/bm25-stem": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:18:05.533837+00:00",
+      "version": "fixed512/e5-base/bm25-stem",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "237aabd3825f0ab5ed5dd040efe94158a105ba96",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "2975992e775e8509",
+      "config": {
+        "version": "fixed512/e5-base/bm25-stem",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "bm25",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "stem",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": false,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/bm25-stem",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.5,
+          "strict_hit@5": 0.3333333333333333,
+          "mrr": 0.4166666666666667,
+          "article_recall@5": 0.5,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "syn_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.5,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.4166666666666667,
+            "article_recall@5": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "syn_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.5,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.4166666666666667,
+            "article_recall@5": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "syn_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 0.0
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00111",
+              "article": "166",
+              "articles": [
+                "166",
+                "167"
+              ],
+              "clauses": [
+                "166/2",
+                "166/3",
+                "166/4",
+                "166/5",
+                "166/5-1",
+                "166/6",
+                "166/7",
+                "166/8",
+                "166/9",
+                "167/1",
+                "167/2"
+              ],
+              "score": 7.1837656868912045,
+              "preview": "и регулированию социальных и трудовых отношений. Члены трехсторонних комиссий, представляющие стороны социального партнерства, включаются в состав трудового арбитража на паритетной основе. По рассматриваемым требованиям работников члены при"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 6.782102690597018,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00125",
+              "article": "186",
+              "articles": [
+                "186",
+                "187"
+              ],
+              "clauses": [
+                "186/2",
+                "186/3",
+                "186/4",
+                "186/5",
+                "186/6",
+                "186/7",
+                "187/1"
+              ],
+              "score": 6.186567201168073,
+              "preview": "или принимающей стороной.\nНе подлежат учету как несчастные случаи, связанные с трудовой деятельностью, повреждения здоровья работников, работников направляющей стороны, в ходе расследования которых объективно установлено, что они произошли:"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00041",
+              "article": "53",
+              "articles": [
+                "53"
+              ],
+              "clauses": [
+                "53/1",
+                "53/2",
+                "53/3",
+                "53/4",
+                "53/5",
+                "53/6"
+              ],
+              "score": 5.3447448501652195,
+              "preview": "ьным кодексом Республики Казахстан, которым осталось менее двух лет, по основаниям, предусмотренным подпунктами 2) и 4) пункта 1 статьи 52 настоящего Кодекса, без наличия положительного решения комиссии, созданной из равного числа представи"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00010",
+              "article": "4",
+              "articles": [
+                "4",
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "clauses": [
+                "4/",
+                "5/",
+                "6/1",
+                "6/2",
+                "6/3",
+                "6/4",
+                "7/",
+                "8/1",
+                "8/2"
+              ],
+              "score": 4.6703404993365245,
+              "preview": "обеспечение права работника на уважение и защиту своей чести и достоинства в сфере труда.\nКаждый человек имеет право свободно выбирать труд или свободно соглашаться на труд без какой бы то ни было дискриминации и принуждения к нему, право р"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.5,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.25,
+            "article_recall_at_k": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "166",
+              "167",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "186",
+              "187",
+              "53",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 0.3245829720981419,
+            "bm25": 0.3225419786758721
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 8.507904147171335,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 6.7549317404370655,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 6.477099508979061,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 5.651772189898506,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00068",
+              "article": "105",
+              "articles": [
+                "105",
+                "106",
+                "107"
+              ],
+              "clauses": [
+                "105/1",
+                "105/2",
+                "105/3",
+                "106/1",
+                "106/2",
+                "107/1",
+                "107/2",
+                "107/3"
+              ],
+              "score": 4.982726241279003,
+              "preview": "и опасности, определяемых отраслевым соглашением.\nОплата труда работников, занятых на тяжелых работах, работах с вредными и (или) опасными условиями труда, в повышенном размере осуществляется согласно Списку производств, цехов, профессий и "
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "82",
+              "83",
+              "84",
+              "85",
+              "134",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "105",
+              "106",
+              "107"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 0.13108400162309408,
+            "bm25": 0.1301249722018838
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00056",
+              "article": "80",
+              "articles": [
+                "80",
+                "81",
+                "82"
+              ],
+              "clauses": [
+                "80/",
+                "81/1",
+                "81/2",
+                "81/3",
+                "82/1",
+                "82/2",
+                "82/3",
+                "82/4"
+              ],
+              "score": 5.420037128052444,
+              "preview": "Видами времени отдыха являются: 1) перерывы в течение рабочего дня (рабочей смены): перерыв для отдыха и приема пищи; внутрисменные и специальные перерывы; 2) ежедневный (междусменный) отдых; 3) выходные дни (межвахтовый отдых); 4) празднич"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00104",
+              "article": "158",
+              "articles": [
+                "158",
+                "159"
+              ],
+              "clauses": [
+                "158/2",
+                "158/3",
+                "158/4",
+                "158/5",
+                "159/1",
+                "159/2"
+              ],
+              "score": 4.566229009253265,
+              "preview": "срока действия коллективного договора он считается продленным до заключения нового коллективного договора, но не более чем на срок до одного года, при условии, что хотя бы одной из сторон до истечения срока его действия внесено предложение "
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00025",
+              "article": "26",
+              "articles": [
+                "26"
+              ],
+              "clauses": [
+                "26/1",
+                "26/1-1",
+                "26/2"
+              ],
+              "score": 4.386991860522606,
+              "preview": "уполномоченным органом по вопросам миграции населения, за исключением иностранных граждан и лиц без гражданства, включенных в перечень лиц, определяемый Правительством Республики Казахстан, для которых не требуется получение разрешения мест"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00070",
+              "article": "111",
+              "articles": [
+                "111",
+                "112",
+                "113"
+              ],
+              "clauses": [
+                "111/2",
+                "111/3",
+                "111/4",
+                "112/1",
+                "112/2",
+                "113/1",
+                "113/2"
+              ],
+              "score": 4.344045091580353,
+              "preview": "2) расширения зон обслуживания – выполнения работником наряду со своей основной работой, предусмотренной трудовым договором (должностной инструкцией), дополнительной работы в течение установленной продолжительности рабочего дня (смены); 3) "
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00069",
+              "article": "107",
+              "articles": [
+                "107",
+                "108",
+                "109",
+                "110",
+                "111"
+              ],
+              "clauses": [
+                "107/3",
+                "107/4",
+                "107/5",
+                "108/",
+                "109/",
+                "110/",
+                "111/1",
+                "111/2"
+              ],
+              "score": 3.8949710353808484,
+              "preview": "заинтересованности работников в увеличении эффективности производства и качества выполняемых работ работодателем могут вводиться системы премирования и другие формы стимулирования труда, определенные условиями коллективного договора и (или)"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "80",
+              "81",
+              "82",
+              "158",
+              "159",
+              "26",
+              "111",
+              "112",
+              "113",
+              "107",
+              "108",
+              "109",
+              "110"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 0.21620799088850617,
+            "bm25": 0.2150830114260316
+          }
+        }
+      ]
+    },
+    "fixed512/e5-base/hybrid": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:18:13.147799+00:00",
+      "version": "fixed512/e5-base/hybrid",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "5c92c535f5dca4c873ca491d5841f26428ad4dcf",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "e10aecee8d675ad0",
+      "config": {
+        "version": "fixed512/e5-base/hybrid",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "hybrid",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": false,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/hybrid",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.5,
+          "strict_hit@5": 0.3333333333333333,
+          "mrr": 0.5,
+          "article_recall@5": 0.5,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "syn_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.5,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.5,
+            "article_recall@5": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "syn_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.5,
+            "strict_hit@5": 0.3333333333333333,
+            "mrr": 0.5,
+            "article_recall@5": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "syn_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 0.17
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00077",
+              "article": "123",
+              "articles": [
+                "123",
+                "124",
+                "124-1",
+                "124-2",
+                "125"
+              ],
+              "clauses": [
+                "123/8",
+                "124/1",
+                "124/2",
+                "124/3",
+                "124-1/",
+                "124-2/",
+                "125/"
+              ],
+              "score": 0.031544957774465976,
+              "preview": "нных работодателем или принимающей стороной работнику, работнику направляющей стороны в пользование; 5) нарушения условия о неконкуренции, которое повлекло причинение ущерба для работодателя или принимающей стороны; 6) в иных случаях, огово"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00041",
+              "article": "53",
+              "articles": [
+                "53"
+              ],
+              "clauses": [
+                "53/1",
+                "53/2",
+                "53/3",
+                "53/4",
+                "53/5",
+                "53/6"
+              ],
+              "score": 0.026144907723855092,
+              "preview": "ьным кодексом Республики Казахстан, которым осталось менее двух лет, по основаниям, предусмотренным подпунктами 2) и 4) пункта 1 статьи 52 настоящего Кодекса, без наличия положительного решения комиссии, созданной из равного числа представи"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00049",
+              "article": "66",
+              "articles": [
+                "66",
+                "67",
+                "68"
+              ],
+              "clauses": [
+                "66/3",
+                "66/4",
+                "66/5",
+                "67/1",
+                "67/2",
+                "68/1",
+                "68/2",
+                "68/3",
+                "68/4"
+              ],
+              "score": 0.0251661918328585,
+              "preview": ", в отношении лиц, допустивших нарушения требований по безопасности и охране труда. 8) признания профессиональной квалификации согласно Закону Республики Казахстан \"О профессиональных квалификациях\"; 9) нахождения работника, проходящего вои"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00060",
+              "article": "89",
+              "articles": [
+                "89",
+                "90",
+                "91",
+                "92",
+                "93"
+              ],
+              "clauses": [
+                "89/3",
+                "90/1",
+                "90/2",
+                "91/",
+                "92/1",
+                "92/2",
+                "92/3",
+                "92/4",
+                "92/5",
+                "92/6",
+                "93/1"
+              ],
+              "score": 0.023122159850307404,
+              "preview": "за длительную непрерывную работу, выполнение важных, сложных, срочных работ, а также работ иного характера.\nПродолжительность оплачиваемых ежегодных трудовых отпусков исчисляется в календарных днях без учета праздничных дней, приходящихся н"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00111",
+              "article": "166",
+              "articles": [
+                "166",
+                "167"
+              ],
+              "clauses": [
+                "166/2",
+                "166/3",
+                "166/4",
+                "166/5",
+                "166/5-1",
+                "166/6",
+                "166/7",
+                "166/8",
+                "166/9",
+                "167/1",
+                "167/2"
+              ],
+              "score": 0.01639344262295082,
+              "preview": "и регулированию социальных и трудовых отношений. Члены трехсторонних комиссий, представляющие стороны социального партнерства, включаются в состав трудового арбитража на паритетной основе. По рассматриваемым требованиям работников члены при"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.5,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.5,
+            "article_recall_at_k": 0.5,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "123",
+              "124",
+              "124-1",
+              "124-2",
+              "125",
+              "53",
+              "66",
+              "67",
+              "68",
+              "89",
+              "90",
+              "91",
+              "92",
+              "93",
+              "166",
+              "167"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 56.072582956403494,
+            "dense": 55.5462499614805,
+            "bm25": 0.43720798566937447,
+            "fusion": 0.06745796417817473
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 0.03278688524590164,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 0.03225806451612903,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.031746031746031744,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 0.030330882352941176,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00049",
+              "article": "66",
+              "articles": [
+                "66",
+                "67",
+                "68"
+              ],
+              "clauses": [
+                "66/3",
+                "66/4",
+                "66/5",
+                "67/1",
+                "67/2",
+                "68/1",
+                "68/2",
+                "68/3",
+                "68/4"
+              ],
+              "score": 0.028205128205128206,
+              "preview": ", в отношении лиц, допустивших нарушения требований по безопасности и охране труда. 8) признания профессиональной квалификации согласно Закону Республики Казахстан \"О профессиональных квалификациях\"; 9) нахождения работника, проходящего вои"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "82",
+              "83",
+              "84",
+              "85",
+              "134",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "66",
+              "67",
+              "68"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 58.96283301990479,
+            "dense": 58.585708029568195,
+            "bm25": 0.2995830145664513,
+            "fusion": 0.058165984228253365
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00044",
+              "article": "56",
+              "articles": [
+                "56",
+                "57"
+              ],
+              "clauses": [
+                "56/3",
+                "56/4",
+                "56/5",
+                "57/1"
+              ],
+              "score": 0.027598020555767037,
+              "preview": "уведомить работодателя о невыполнении работодателем условий трудового договора. Если по истечении семи рабочих дней со дня уведомления неисполнение условий трудового договора работодателем продолжается, работник вправе расторгнуть трудовой "
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00078",
+              "article": "125",
+              "articles": [
+                "125",
+                "126",
+                "126-1",
+                "126-2",
+                "127"
+              ],
+              "clauses": [
+                "125/",
+                "126/",
+                "126-1/",
+                "126-2/",
+                "127/1",
+                "127/2",
+                "127/3",
+                "127/4"
+              ],
+              "score": 0.026161328190508135,
+              "preview": "яются место работы (должность) и средняя заработная плата. Время, затраченное на прохождение предсменного медицинского освидетельствования работником, обязанным его проходить в соответствии с законодательством Республики Казахстан, соглашен"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00024",
+              "article": "23",
+              "articles": [
+                "23",
+                "24",
+                "25",
+                "26"
+              ],
+              "clauses": [
+                "23/2",
+                "23/3",
+                "24/",
+                "25/1",
+                "25/2",
+                "26/1"
+              ],
+              "score": 0.025015634771732333,
+              "preview": "пенсионного аннуитетного страхования в соответствии со статьей 23-1 Закона Республики Казахстан \"Об обязательном страховании работника от несчастных случаев при исполнении им трудовых (служебных) обязанностей\".\nРаботодатель имеет иные права"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00125",
+              "article": "186",
+              "articles": [
+                "186",
+                "187"
+              ],
+              "clauses": [
+                "186/2",
+                "186/3",
+                "186/4",
+                "186/5",
+                "186/6",
+                "186/7",
+                "187/1"
+              ],
+              "score": 0.023952954675846242,
+              "preview": "или принимающей стороной.\nНе подлежат учету как несчастные случаи, связанные с трудовой деятельностью, повреждения здоровья работников, работников направляющей стороны, в ходе расследования которых объективно установлено, что они произошли:"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00072",
+              "article": "114",
+              "articles": [
+                "114",
+                "115",
+                "116"
+              ],
+              "clauses": [
+                "114/3",
+                "115/1",
+                "115/2",
+                "115/3",
+                "116/"
+              ],
+              "score": 0.02361111111111111,
+              "preview": "средней заработной платы, предусмотренных настоящим Кодексом, уполномоченным государственным органом по труду устанавливается единый порядок ее исчисления.\nУдержания из заработной платы работника производятся по решению суда, а также в случ"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "56",
+              "57",
+              "125",
+              "126",
+              "126-1",
+              "126-2",
+              "127",
+              "23",
+              "24",
+              "25",
+              "26",
+              "186",
+              "187",
+              "114",
+              "115",
+              "116"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 58.48541698651388,
+            "dense": 57.96129099326208,
+            "bm25": 0.44733297545462847,
+            "fusion": 0.05866697756573558
+          }
+        }
+      ]
+    },
+    "fixed512/e5-base/dense+rerank": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:20:56.706191+00:00",
+      "version": "fixed512/e5-base/dense+rerank",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "5c92c535f5dca4c873ca491d5841f26428ad4dcf",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "b14ce1a9bb3dcb61",
+      "config": {
+        "version": "fixed512/e5-base/dense+rerank",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "dense",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": true,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/dense+rerank",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.6666666666666666,
+          "strict_hit@5": 0.6666666666666666,
+          "mrr": 0.6666666666666666,
+          "article_recall@5": 0.6666666666666666,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "new_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 19.47
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00037",
+              "article": "48",
+              "articles": [
+                "48",
+                "49",
+                "50",
+                "51"
+              ],
+              "clauses": [
+                "48/3",
+                "48/4",
+                "48/5",
+                "48/6",
+                "49/",
+                "50/1",
+                "50/2",
+                "51/1",
+                "51/2"
+              ],
+              "score": 0.002410768996924162,
+              "preview": "одатель или принимающая сторона имеет право отстранить от работы работника, работника направляющей стороны, не обеспечившего сохранность имущества и других ценностей, переданных работнику, работнику направляющей стороны на основании письмен"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00036",
+              "article": "46",
+              "articles": [
+                "46",
+                "47",
+                "48"
+              ],
+              "clauses": [
+                "46/2",
+                "46/3",
+                "47/",
+                "48/1",
+                "48/2",
+                "48/3"
+              ],
+              "score": 0.0018263054080307484,
+              "preview": ", произошедшем по причинам, указанным в пункте 1 настоящей статьи, не позднее чем за пятнадцать календарных дней, если трудовым, коллективным договорами не предусмотрен более длительный срок уведомления.\nВ случае письменного отказа работник"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00049",
+              "article": "66",
+              "articles": [
+                "66",
+                "67",
+                "68"
+              ],
+              "clauses": [
+                "66/3",
+                "66/4",
+                "66/5",
+                "67/1",
+                "67/2",
+                "68/1",
+                "68/2",
+                "68/3",
+                "68/4"
+              ],
+              "score": 0.0016487466637045145,
+              "preview": ", в отношении лиц, допустивших нарушения требований по безопасности и охране труда. 8) признания профессиональной квалификации согласно Закону Республики Казахстан \"О профессиональных квалификациях\"; 9) нахождения работника, проходящего вои"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00046",
+              "article": "60",
+              "articles": [
+                "60",
+                "61",
+                "62",
+                "63",
+                "64",
+                "65"
+              ],
+              "clauses": [
+                "60/",
+                "61/1",
+                "61/2",
+                "61/3",
+                "62/1",
+                "62/2",
+                "62/3",
+                "63/1",
+                "63/2",
+                "64/1",
+                "64/2",
+                "65/1"
+              ],
+              "score": 0.0015829477924853563,
+              "preview": "предусмотренных настоящим Кодексом, законами Республики Казахстан и иными нормативными правовыми актами Республики Казахстан.\nПрекращение трудового договора оформляется актом работодателя, за исключением прекращения трудового договора в слу"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00077",
+              "article": "123",
+              "articles": [
+                "123",
+                "124",
+                "124-1",
+                "124-2",
+                "125"
+              ],
+              "clauses": [
+                "123/8",
+                "124/1",
+                "124/2",
+                "124/3",
+                "124-1/",
+                "124-2/",
+                "125/"
+              ],
+              "score": 0.00124331412371248,
+              "preview": "нных работодателем или принимающей стороной работнику, работнику направляющей стороны в пользование; 5) нарушения условия о неконкуренции, которое повлекло причинение ущерба для работодателя или принимающей стороны; 6) в иных случаях, огово"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "48",
+              "49",
+              "50",
+              "51",
+              "46",
+              "47",
+              "66",
+              "67",
+              "68",
+              "60",
+              "61",
+              "62",
+              "63",
+              "64",
+              "65",
+              "123",
+              "124",
+              "124-1",
+              "124-2",
+              "125"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 6564.217083971016,
+            "dense": 67.1586660319008,
+            "rerank": 6497.013874992263
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 0.9830054640769958,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.16389204561710358,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 0.08080432564020157,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 0.007715058047324419,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00051",
+              "article": "69",
+              "articles": [
+                "69",
+                "70",
+                "71"
+              ],
+              "clauses": [
+                "69/3",
+                "69/4",
+                "70/1",
+                "70/2",
+                "70/3",
+                "71/1",
+                "71/2",
+                "71/3",
+                "71/4",
+                "71/5"
+              ],
+              "score": 0.007312376983463764,
+              "preview": "ностью первой и второй групп устанавливается сокращенная продолжительность рабочего времени – не более 36 часов в неделю.\nОплата труда работников при установлении им сокращенной продолжительности рабочего времени производится в соответствии"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "134",
+              "82",
+              "83",
+              "84",
+              "85",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "69",
+              "70"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 6372.43904202478,
+            "dense": 52.37708397908136,
+            "rerank": 6320.026958012022
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00043",
+              "article": "53",
+              "articles": [
+                "53",
+                "54",
+                "55",
+                "56"
+              ],
+              "clauses": [
+                "53/12",
+                "54/1",
+                "54/2",
+                "55/1",
+                "55/1-1",
+                "55/2",
+                "56/1",
+                "56/2",
+                "56/3"
+              ],
+              "score": 0.004559776745736599,
+              "preview": ", 10) и 12) части первой статьи 35 или статьи 36 Уголовно-процессуального кодекса Республики Казахстан.\nНе допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности и пребывания работника в "
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00045",
+              "article": "57",
+              "articles": [
+                "57",
+                "58",
+                "59",
+                "60"
+              ],
+              "clauses": [
+                "57/2",
+                "58/1",
+                "58/2",
+                "58/3",
+                "59/",
+                "60/"
+              ],
+              "score": 0.0026459265500307083,
+              "preview": "Датой прекращения трудового договора по основаниям, указанным в подпунктах 2), 3) и 4) пункта 1 настоящей статьи, является дата вступления в законную силу приговора или решения суда, дата смерти работника или работодателя – физического лица"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00035",
+              "article": "43",
+              "articles": [
+                "43",
+                "44",
+                "45",
+                "46"
+              ],
+              "clauses": [
+                "43/1",
+                "43/2",
+                "44/",
+                "45/1",
+                "45/2",
+                "46/1",
+                "46/2"
+              ],
+              "score": 0.0016710557974874973,
+              "preview": "ным договором не предусмотрены иные условия, улучшающие положение работника.\nВ случае письменного отказа работника от временного перевода на другую не противопоказанную по состоянию здоровья работу либо при наличии акта, удостоверяющего отк"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00032",
+              "article": "36",
+              "articles": [
+                "36",
+                "37",
+                "38",
+                "39",
+                "40"
+              ],
+              "clauses": [
+                "36/2",
+                "36/3",
+                "37/1",
+                "37/2",
+                "38/1",
+                "38/2",
+                "38/3",
+                "39/1",
+                "39/2",
+                "40/1"
+              ],
+              "score": 0.0013796869898214936,
+              "preview": "не может превышать три месяца. Для руководителей организаций и их заместителей, главных бухгалтеров и их заместителей, руководителей филиалов, представительств организаций испытательный срок может быть увеличен до шести месяцев.\nИспытательн"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00037",
+              "article": "48",
+              "articles": [
+                "48",
+                "49",
+                "50",
+                "51"
+              ],
+              "clauses": [
+                "48/3",
+                "48/4",
+                "48/5",
+                "48/6",
+                "49/",
+                "50/1",
+                "50/2",
+                "51/1",
+                "51/2"
+              ],
+              "score": 0.0013217284576967359,
+              "preview": "одатель или принимающая сторона имеет право отстранить от работы работника, работника направляющей стороны, не обеспечившего сохранность имущества и других ценностей, переданных работнику, работнику направляющей стороны на основании письмен"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "53",
+              "54",
+              "55",
+              "56",
+              "57",
+              "58",
+              "59",
+              "60",
+              "43",
+              "44",
+              "45",
+              "46",
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "48",
+              "49",
+              "50",
+              "51"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 6534.9773750058375,
+            "dense": 50.77520798658952,
+            "rerank": 6484.172791999299
+          }
+        }
+      ]
+    },
+    "fixed512/e5-base/hybrid+rerank": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:21:31.470583+00:00",
+      "version": "fixed512/e5-base/hybrid+rerank",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "5c92c535f5dca4c873ca491d5841f26428ad4dcf",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "b260f863d7ecb60f",
+      "config": {
+        "version": "fixed512/e5-base/hybrid+rerank",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "intfloat/multilingual-e5-base",
+          "dimensions": 768,
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalize": true,
+          "max_sequence_length": 512,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_e5_base",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "hybrid",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": true,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "intfloat/multilingual-e5-base",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 512
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/e5-base/hybrid+rerank",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "intfloat/multilingual-e5-base",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 512
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.6666666666666666,
+          "strict_hit@5": 0.6666666666666666,
+          "mrr": 0.6666666666666666,
+          "article_recall@5": 0.6666666666666666,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "new_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.6666666666666666,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 20.78
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00037",
+              "article": "48",
+              "articles": [
+                "48",
+                "49",
+                "50",
+                "51"
+              ],
+              "clauses": [
+                "48/3",
+                "48/4",
+                "48/5",
+                "48/6",
+                "49/",
+                "50/1",
+                "50/2",
+                "51/1",
+                "51/2"
+              ],
+              "score": 0.002410768996924162,
+              "preview": "одатель или принимающая сторона имеет право отстранить от работы работника, работника направляющей стороны, не обеспечившего сохранность имущества и других ценностей, переданных работнику, работнику направляющей стороны на основании письмен"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00049",
+              "article": "66",
+              "articles": [
+                "66",
+                "67",
+                "68"
+              ],
+              "clauses": [
+                "66/3",
+                "66/4",
+                "66/5",
+                "67/1",
+                "67/2",
+                "68/1",
+                "68/2",
+                "68/3",
+                "68/4"
+              ],
+              "score": 0.001648745033890009,
+              "preview": ", в отношении лиц, допустивших нарушения требований по безопасности и охране труда. 8) признания профессиональной квалификации согласно Закону Республики Казахстан \"О профессиональных квалификациях\"; 9) нахождения работника, проходящего вои"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00046",
+              "article": "60",
+              "articles": [
+                "60",
+                "61",
+                "62",
+                "63",
+                "64",
+                "65"
+              ],
+              "clauses": [
+                "60/",
+                "61/1",
+                "61/2",
+                "61/3",
+                "62/1",
+                "62/2",
+                "62/3",
+                "63/1",
+                "63/2",
+                "64/1",
+                "64/2",
+                "65/1"
+              ],
+              "score": 0.0015829477924853563,
+              "preview": "предусмотренных настоящим Кодексом, законами Республики Казахстан и иными нормативными правовыми актами Республики Казахстан.\nПрекращение трудового договора оформляется актом работодателя, за исключением прекращения трудового договора в слу"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00111",
+              "article": "166",
+              "articles": [
+                "166",
+                "167"
+              ],
+              "clauses": [
+                "166/2",
+                "166/3",
+                "166/4",
+                "166/5",
+                "166/5-1",
+                "166/6",
+                "166/7",
+                "166/8",
+                "166/9",
+                "167/1",
+                "167/2"
+              ],
+              "score": 0.0015452582156285644,
+              "preview": "и регулированию социальных и трудовых отношений. Члены трехсторонних комиссий, представляющие стороны социального партнерства, включаются в состав трудового арбитража на паритетной основе. По рассматриваемым требованиям работников члены при"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00010",
+              "article": "4",
+              "articles": [
+                "4",
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "clauses": [
+                "4/",
+                "5/",
+                "6/1",
+                "6/2",
+                "6/3",
+                "6/4",
+                "7/",
+                "8/1",
+                "8/2"
+              ],
+              "score": 0.0013972223969176412,
+              "preview": "обеспечение права работника на уважение и защиту своей чести и достоинства в сфере труда.\nКаждый человек имеет право свободно выбирать труд или свободно соглашаться на труд без какой бы то ни было дискриминации и принуждения к нему, право р"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "48",
+              "49",
+              "50",
+              "51",
+              "66",
+              "67",
+              "68",
+              "60",
+              "61",
+              "62",
+              "63",
+              "64",
+              "65",
+              "166",
+              "167",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 6870.444791042246,
+            "dense": 57.724583020899445,
+            "bm25": 0.5362499505281448,
+            "fusion": 0.06908399518579245,
+            "rerank": 6812.0662909932435
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 0.9830054640769958,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.16389204561710358,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 0.08080432564020157,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00052",
+              "article": "71",
+              "articles": [
+                "71",
+                "72",
+                "73",
+                "73-1"
+              ],
+              "clauses": [
+                "71/5",
+                "71/6",
+                "72/1",
+                "72/2",
+                "72/3",
+                "73/1",
+                "73/2",
+                "73/3",
+                "73/4",
+                "73-1/1",
+                "73-1/2"
+              ],
+              "score": 0.0077150724828243256,
+              "preview": "ежедневной работы (рабочей смены), время начала и окончания ежедневной работы (рабочей смены), время перерывов в работе определяются с соблюдением условий, установленных правилами трудового распорядка, трудовым и коллективным договорами.\nДл"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00051",
+              "article": "69",
+              "articles": [
+                "69",
+                "70",
+                "71"
+              ],
+              "clauses": [
+                "69/3",
+                "69/4",
+                "70/1",
+                "70/2",
+                "70/3",
+                "71/1",
+                "71/2",
+                "71/3",
+                "71/4",
+                "71/5"
+              ],
+              "score": 0.007312376983463764,
+              "preview": "ностью первой и второй групп устанавливается сокращенная продолжительность рабочего времени – не более 36 часов в неделю.\nОплата труда работников при установлении им сокращенной продолжительности рабочего времени производится в соответствии"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "134",
+              "82",
+              "83",
+              "84",
+              "85",
+              "71",
+              "72",
+              "73",
+              "73-1",
+              "69",
+              "70"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 6904.287958983332,
+            "dense": 51.307042012922466,
+            "bm25": 0.30283298110589385,
+            "fusion": 0.05412503378465772,
+            "rerank": 6852.5816250476055
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00043",
+              "article": "53",
+              "articles": [
+                "53",
+                "54",
+                "55",
+                "56"
+              ],
+              "clauses": [
+                "53/12",
+                "54/1",
+                "54/2",
+                "55/1",
+                "55/1-1",
+                "55/2",
+                "56/1",
+                "56/2",
+                "56/3"
+              ],
+              "score": 0.004559789784252644,
+              "preview": ", 10) и 12) части первой статьи 35 или статьи 36 Уголовно-процессуального кодекса Республики Казахстан.\nНе допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности и пребывания работника в "
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00035",
+              "article": "43",
+              "articles": [
+                "43",
+                "44",
+                "45",
+                "46"
+              ],
+              "clauses": [
+                "43/1",
+                "43/2",
+                "44/",
+                "45/1",
+                "45/2",
+                "46/1",
+                "46/2"
+              ],
+              "score": 0.0016710557974874973,
+              "preview": "ным договором не предусмотрены иные условия, улучшающие положение работника.\nВ случае письменного отказа работника от временного перевода на другую не противопоказанную по состоянию здоровья работу либо при наличии акта, удостоверяющего отк"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00037",
+              "article": "48",
+              "articles": [
+                "48",
+                "49",
+                "50",
+                "51"
+              ],
+              "clauses": [
+                "48/3",
+                "48/4",
+                "48/5",
+                "48/6",
+                "49/",
+                "50/1",
+                "50/2",
+                "51/1",
+                "51/2"
+              ],
+              "score": 0.0013217284576967359,
+              "preview": "одатель или принимающая сторона имеет право отстранить от работы работника, работника направляющей стороны, не обеспечившего сохранность имущества и других ценностей, переданных работнику, работнику направляющей стороны на основании письмен"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00036",
+              "article": "46",
+              "articles": [
+                "46",
+                "47",
+                "48"
+              ],
+              "clauses": [
+                "46/2",
+                "46/3",
+                "47/",
+                "48/1",
+                "48/2",
+                "48/3"
+              ],
+              "score": 0.0011014390038326383,
+              "preview": ", произошедшем по причинам, указанным в пункте 1 настоящей статьи, не позднее чем за пятнадцать календарных дней, если трудовым, коллективным договорами не предусмотрен более длительный срок уведомления.\nВ случае письменного отказа работник"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00044",
+              "article": "56",
+              "articles": [
+                "56",
+                "57"
+              ],
+              "clauses": [
+                "56/3",
+                "56/4",
+                "56/5",
+                "57/1"
+              ],
+              "score": 0.000946653017308563,
+              "preview": "уведомить работодателя о невыполнении работодателем условий трудового договора. Если по истечении семи рабочих дней со дня уведомления неисполнение условий трудового договора работодателем продолжается, работник вправе расторгнуть трудовой "
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "53",
+              "54",
+              "55",
+              "56",
+              "43",
+              "44",
+              "45",
+              "46",
+              "48",
+              "49",
+              "50",
+              "51",
+              "47",
+              "57"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 7008.621542016044,
+            "dense": 48.66349999792874,
+            "bm25": 0.43516699224710464,
+            "fusion": 0.05745800444856286,
+            "rerank": 6959.43070796784
+          }
+        }
+      ]
+    },
+    "fixed512/bge-m3/dense": {
+      "schema_version": "1.0",
+      "metrics_version": "3.0",
+      "timestamp": "2026-10-01T18:23:03.187904+00:00",
+      "version": "fixed512/bge-m3/dense",
+      "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+      "git": {
+        "commit": "5c92c535f5dca4c873ca491d5841f26428ad4dcf",
+        "branch": "claude/claude-rc-334546",
+        "dirty": true
+      },
+      "config_fingerprint": "ef19ed551d0d74ff",
+      "config": {
+        "version": "fixed512/bge-m3/dense",
+        "description": "Намеренно наивный baseline: чанки фиксированной длины без учёта структуры документа, плотный поиск по косинусному сходству, без reranking.",
+        "corpus": {
+          "raw_html": "data/raw/adilet_K1500000414_rus.html",
+          "checksum_file": "data/raw/CHECKSUM",
+          "strip_amendment_notes": true
+        },
+        "chunking": {
+          "strategy": "fixed_tokens",
+          "chunk_size_tokens": 512,
+          "chunk_overlap_tokens": 0,
+          "tokenizer": "intfloat/multilingual-e5-base",
+          "prepend_article_header": false
+        },
+        "embeddings": {
+          "provider": "huggingface",
+          "model": "BAAI/bge-m3",
+          "dimensions": 1024,
+          "query_prefix": "",
+          "passage_prefix": "",
+          "normalize": true,
+          "max_sequence_length": 8192,
+          "batch_size": 32,
+          "device": "cpu",
+          "cache": {
+            "enabled": true,
+            "dir": ".cache/embeddings"
+          }
+        },
+        "vector_store": {
+          "backend": "pgvector",
+          "table": "exp_fixed512_bge_m3",
+          "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+          "distance": "cosine",
+          "index": "none"
+        },
+        "retrieval": {
+          "implementation": "dense",
+          "top_k": 5,
+          "candidate_k": 5,
+          "bm25": {
+            "analyzer": "lemma",
+            "k1": 1.2,
+            "b": 0.75
+          },
+          "hybrid": {
+            "candidate_k": 30,
+            "rrf_k": 60
+          },
+          "reranker": {
+            "enabled": false,
+            "model": "BAAI/bge-reranker-v2-m3",
+            "candidate_k": 20,
+            "max_length": 1024,
+            "batch_size": 8,
+            "device": "cpu"
+          },
+          "query_expansion": {
+            "enabled": false
+          }
+        },
+        "generation": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "prompt_id": "answer_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "judge": {
+          "enabled": false,
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "prompt_id": "faithfulness_ru",
+          "prompt_version": "v1",
+          "max_tokens": 1024,
+          "temperature": 0.0
+        },
+        "eval": {
+          "dataset": "evals/questions.jsonl",
+          "results_dir": "evals/results",
+          "k": 5,
+          "languages": [
+            "ru"
+          ],
+          "primary_language": "ru",
+          "repeats": 1,
+          "seed": 20260811
+        }
+      },
+      "comparability": {
+        "metrics_version": "3.0",
+        "k": 5,
+        "context_format": "1e99e76d06a7",
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "BAAI/bge-m3",
+        "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "generator_prompt": null,
+        "judge_prompt": null
+      },
+      "index": {
+        "chunking_signature": "4d4ae0162b8c9a49",
+        "embeddings_model": "BAAI/bge-m3",
+        "corpus_edition_date": "07.08.2026",
+        "parser_version": "1.0",
+        "chunks": 143,
+        "max_encoded_tokens": 510
+      },
+      "environment": {
+        "python": "3.12.14",
+        "platform": "macOS-15.7.9-arm64-arm-64bit"
+      },
+      "dataset": {
+        "path": "/Users/macos/Projects/kz-labor-rag/.claude/worktrees/claude-rc-334546/evals/questions.jsonl",
+        "sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+        "schema_version": "4.0",
+        "stats": {
+          "total": 86,
+          "ru": 86,
+          "kk": 0,
+          "real": 15,
+          "synthetic": 71,
+          "with_preferred_clause": 0,
+          "unanswerable": 10,
+          "verified": 3,
+          "draft_slots": 0
+        },
+        "evaluated": {
+          "n": 3,
+          "real": 0,
+          "synthetic": 3,
+          "unanswerable": 0,
+          "skipped_unverified": 83
+        }
+      },
+      "components": {
+        "retriever": {
+          "version": "fixed512/bge-m3/dense",
+          "chunking_signature": "4d4ae0162b8c9a49",
+          "embeddings_model": "BAAI/bge-m3",
+          "corpus_edition_date": "07.08.2026",
+          "parser_version": "1.0",
+          "chunks": 143,
+          "max_encoded_tokens": 510
+        },
+        "generator": null,
+        "judge": null
+      },
+      "aggregates": {
+        "primary": {
+          "n": 3,
+          "recall@5": 0.6666666666666666,
+          "strict_hit@5": 0.6666666666666666,
+          "mrr": 0.4166666666666667,
+          "article_recall@5": 0.6666666666666666,
+          "citation_validity": null,
+          "faithfulness": null,
+          "n_judged": 0,
+          "retrieval_failures": [
+            "new_001"
+          ]
+        },
+        "by_language": {
+          "ru": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.4166666666666667,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        },
+        "by_origin": {
+          "real": {
+            "n": 0
+          },
+          "synthetic": {
+            "n": 3,
+            "recall@5": 0.6666666666666666,
+            "strict_hit@5": 0.6666666666666666,
+            "mrr": 0.4166666666666667,
+            "article_recall@5": 0.6666666666666666,
+            "citation_validity": null,
+            "faithfulness": null,
+            "n_judged": 0,
+            "retrieval_failures": [
+              "new_001"
+            ]
+          }
+        }
+      },
+      "timing": {
+        "wall_seconds": 0.47
+      },
+      "questions": [
+        {
+          "id": "new_001",
+          "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "53",
+            "131"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 53 п. 1",
+            "ст. 131 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00072",
+              "article": "114",
+              "articles": [
+                "114",
+                "115",
+                "116"
+              ],
+              "clauses": [
+                "114/3",
+                "115/1",
+                "115/2",
+                "115/3",
+                "116/"
+              ],
+              "score": 0.5966074111099605,
+              "preview": "средней заработной платы, предусмотренных настоящим Кодексом, уполномоченным государственным органом по труду устанавливается единый порядок ее исчисления.\nУдержания из заработной платы работника производятся по решению суда, а также в случ"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00071",
+              "article": "113",
+              "articles": [
+                "113",
+                "114"
+              ],
+              "clauses": [
+                "113/2",
+                "113/3",
+                "113/4",
+                "114/1",
+                "114/2",
+                "114/3"
+              ],
+              "score": 0.5817974112275348,
+              "preview": "о извещать каждого работника о составных частях заработной платы, причитающейся ему за соответствующий период, размерах и основаниях произведенных удержаний, в том числе сведения об удержанных и перечисленных обязательных пенсионных взносах"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00070",
+              "article": "111",
+              "articles": [
+                "111",
+                "112",
+                "113"
+              ],
+              "clauses": [
+                "111/2",
+                "111/3",
+                "111/4",
+                "112/1",
+                "112/2",
+                "113/1",
+                "113/2"
+              ],
+              "score": 0.5581945707566057,
+              "preview": "2) расширения зон обслуживания – выполнения работником наряду со своей основной работой, предусмотренной трудовым договором (должностной инструкцией), дополнительной работы в течение установленной продолжительности рабочего дня (смены); 3) "
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.554077916851292,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00008",
+              "article": "1",
+              "articles": [
+                "1"
+              ],
+              "clauses": [
+                "1/1"
+              ],
+              "score": 0.5519664719114781,
+              "preview": "обучаемый); 69-1) предоставление персонала – направление работника по договору на оказание услуг по предоставлению персонала направляющей стороной принимающей стороне для выполнения им трудовой функции в интересах, под управлением и контрол"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 0.0,
+            "strict_hit_at_k": 0.0,
+            "reciprocal_rank": 0.0,
+            "article_recall_at_k": 0.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "114",
+              "115",
+              "116",
+              "113",
+              "111",
+              "112",
+              "134",
+              "135",
+              "1"
+            ]
+          },
+          "retrieval_failure": true,
+          "latency_ms": {
+            "retrieval": 185.67366700153798,
+            "dense": 185.66454201936722
+          }
+        },
+        {
+          "id": "new_002",
+          "question": "Сколько дней подряд может длиться вахта?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "135"
+          ],
+          "acceptable_articles": [],
+          "required_clauses": [
+            "ст. 135 п. 4"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00085",
+              "article": "135",
+              "articles": [
+                "135"
+              ],
+              "clauses": [
+                "135/4",
+                "135/5",
+                "135/6",
+                "135/7"
+              ],
+              "score": 0.7315934460405454,
+              "preview": "Продолжительность вахты не может превышать пятнадцать календарных дней. С письменного согласия работника продолжительность вахты может быть увеличена до тридцати календарных дней в соответствии с коллективным, трудовым договорами. Для члено"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00084",
+              "article": "134",
+              "articles": [
+                "134",
+                "135"
+              ],
+              "clauses": [
+                "134/5",
+                "134/6",
+                "134/7",
+                "134/8",
+                "135/1",
+                "135/2",
+                "135/3",
+                "135/4"
+              ],
+              "score": 0.6178099372613505,
+              "preview": "ведомив об этом работодателя за семь календарных дней.\nРаботодатель обязан уведомить работника, занятого на сезонных работах, о предстоящем расторжении трудового договора по основаниям, предусмотренным подпунктами 1) и 2) пункта 1 статьи 52"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00057",
+              "article": "82",
+              "articles": [
+                "82",
+                "83",
+                "84",
+                "85"
+              ],
+              "clauses": [
+                "82/4",
+                "82/5",
+                "83/",
+                "84/1",
+                "84/2",
+                "84/3",
+                "84/4",
+                "84/4-1",
+                "84/5",
+                "84/6",
+                "85/1"
+              ],
+              "score": 0.5841256380081218,
+              "preview": "е 3 настоящей статьи, присоединяются к перерыву для отдыха и приема пищи либо суммированные перерывы предоставляются в начале или конце рабочего дня (смены).\nПерерывы для кормления ребенка (детей) включаются в рабочее время. За время переры"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00055",
+              "article": "77",
+              "articles": [
+                "77",
+                "78",
+                "79"
+              ],
+              "clauses": [
+                "77/2",
+                "77/3",
+                "78/1",
+                "78/2",
+                "78/3",
+                "79/1",
+                "79/2",
+                "79/3",
+                "79/4"
+              ],
+              "score": 0.5735356465854866,
+              "preview": "верхурочные работы без согласия работника допускаются в следующих случаях: 1) при производстве работ, необходимых для обороны страны, введения чрезвычайного или военного положения, объявления чрезвычайной ситуации, а также для предотвращени"
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00051",
+              "article": "69",
+              "articles": [
+                "69",
+                "70",
+                "71"
+              ],
+              "clauses": [
+                "69/3",
+                "69/4",
+                "70/1",
+                "70/2",
+                "70/3",
+                "71/1",
+                "71/2",
+                "71/3",
+                "71/4",
+                "71/5"
+              ],
+              "score": 0.535790411484814,
+              "preview": "ностью первой и второй групп устанавливается сокращенная продолжительность рабочего времени – не более 36 часов в неделю.\nОплата труда работников при установлении им сокращенной продолжительности рабочего времени производится в соответствии"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 1.0,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "135",
+              "134",
+              "82",
+              "83",
+              "84",
+              "85",
+              "77",
+              "78",
+              "79",
+              "69",
+              "70",
+              "71"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 144.65179096441716,
+            "dense": 144.6475830161944
+          }
+        },
+        {
+          "id": "syn_001",
+          "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+          "lang": "ru",
+          "origin": "synthetic",
+          "required_articles": [
+            "54"
+          ],
+          "acceptable_articles": [
+            "52"
+          ],
+          "required_clauses": [
+            "ст. 54 п. 1"
+          ],
+          "retrieved": [
+            {
+              "rank": 1,
+              "chunk_id": "c00058",
+              "article": "85",
+              "articles": [
+                "85",
+                "86",
+                "87"
+              ],
+              "clauses": [
+                "85/1",
+                "85/2",
+                "85/3",
+                "85/4",
+                "86/",
+                "87/1",
+                "87/2",
+                "87/3",
+                "87/4",
+                "87/5"
+              ],
+              "score": 0.5904764425186625,
+              "preview": "е работников и издание акта работодателя не требуются. Работа в выходные и праздничные дни допускается с письменного согласия работника или по его просьбе на основании акта работодателя, за исключением случаев, предусмотренных статьей 86 на"
+            },
+            {
+              "rank": 2,
+              "chunk_id": "c00035",
+              "article": "43",
+              "articles": [
+                "43",
+                "44",
+                "45",
+                "46"
+              ],
+              "clauses": [
+                "43/1",
+                "43/2",
+                "44/",
+                "45/1",
+                "45/2",
+                "46/1",
+                "46/2"
+              ],
+              "score": 0.5832508454769356,
+              "preview": "ным договором не предусмотрены иные условия, улучшающие положение работника.\nВ случае письменного отказа работника от временного перевода на другую не противопоказанную по состоянию здоровья работу либо при наличии акта, удостоверяющего отк"
+            },
+            {
+              "rank": 3,
+              "chunk_id": "c00037",
+              "article": "48",
+              "articles": [
+                "48",
+                "49",
+                "50",
+                "51"
+              ],
+              "clauses": [
+                "48/3",
+                "48/4",
+                "48/5",
+                "48/6",
+                "49/",
+                "50/1",
+                "50/2",
+                "51/1",
+                "51/2"
+              ],
+              "score": 0.5726980566978455,
+              "preview": "одатель или принимающая сторона имеет право отстранить от работы работника, работника направляющей стороны, не обеспечившего сохранность имущества и других ценностей, переданных работнику, работнику направляющей стороны на основании письмен"
+            },
+            {
+              "rank": 4,
+              "chunk_id": "c00043",
+              "article": "53",
+              "articles": [
+                "53",
+                "54",
+                "55",
+                "56"
+              ],
+              "clauses": [
+                "53/12",
+                "54/1",
+                "54/2",
+                "55/1",
+                "55/1-1",
+                "55/2",
+                "56/1",
+                "56/2",
+                "56/3"
+              ],
+              "score": 0.5689614415168762,
+              "preview": ", 10) и 12) части первой статьи 35 или статьи 36 Уголовно-процессуального кодекса Республики Казахстан.\nНе допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности и пребывания работника в "
+            },
+            {
+              "rank": 5,
+              "chunk_id": "c00042",
+              "article": "53",
+              "articles": [
+                "53"
+              ],
+              "clauses": [
+                "53/6",
+                "53/7",
+                "53/7-1",
+                "53/7-2",
+                "53/8",
+                "53/9",
+                "53/10",
+                "53/11",
+                "53/12"
+              ],
+              "score": 0.5637188477851374,
+              "preview": ", и требований статьи 66 настоящего Кодекса.\nРасторжение трудового договора по основанию, предусмотренному подпунктом 9) пункта 1 статьи 52 настоящего Кодекса, должно быть подтверждено медицинским заключением. Решение о направлении работник"
+            }
+          ],
+          "metrics": {
+            "recall_at_k": 1.0,
+            "strict_hit_at_k": 1.0,
+            "reciprocal_rank": 0.25,
+            "article_recall_at_k": 1.0,
+            "citation_validity": null,
+            "faithfulness": null,
+            "retrieved_articles": [
+              "85",
+              "86",
+              "87",
+              "43",
+              "44",
+              "45",
+              "46",
+              "48",
+              "49",
+              "50",
+              "51",
+              "53",
+              "54",
+              "55",
+              "56"
+            ]
+          },
+          "retrieval_failure": false,
+          "latency_ms": {
+            "retrieval": 137.39600003464147,
+            "dense": 137.39333301782608
+          }
+        }
+      ]
+    }
+  }
+}
