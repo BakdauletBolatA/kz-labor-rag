@@ -23,6 +23,7 @@ import argparse
 import copy
 import json
 import logging
+import statistics
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -30,6 +31,7 @@ import numpy as np
 
 from kz_labor_rag.cli import build_retriever
 from kz_labor_rag.config import Config, load_config
+from kz_labor_rag.corpus.chunker import build_tokenizer
 from kz_labor_rag.eval.dataset import load_dataset
 from kz_labor_rag.eval.runner import EvalRunner
 from kz_labor_rag.indexer import build_index, index_mismatch
@@ -37,8 +39,22 @@ from kz_labor_rag.retrieval.factory import build_store
 
 log = logging.getLogger("retrieval_eval")
 
+
+def chunking(strategy: str, overlap: int = 0, header: bool = False) -> dict:
+    return {
+        "chunking.strategy": strategy,
+        "chunking.chunk_overlap_tokens": overlap,
+        "chunking.prepend_article_header": header,
+    }
+
+
 CHUNKINGS: dict[str, dict] = {
-    "fixed512": {"chunking.strategy": "fixed_tokens"},
+    "fixed512": chunking("fixed_tokens"),
+    "fixed512-overlap128": chunking("fixed_tokens", overlap=128),
+    "clause": chunking("clause"),
+    "article": chunking("article"),
+    # Заголовок статьи — отдельная гипотеза, поэтому отдельной строкой.
+    "clause+header": chunking("clause", header=True),
 }
 
 EMBEDDINGS: dict[str, dict] = {
@@ -61,9 +77,15 @@ METHODS: dict[str, dict] = {
     "hybrid+rerank": {"retrieval.implementation": "hybrid", "retrieval.reranker.enabled": True},
 }
 
-# Модель эмбеддингов влияет только на dense-часть; сравнивать её имеет смысл
-# на чистом dense, остальные методы идут на базовой модели.
-CELLS: list[tuple[str, str]] = [("e5-base", m) for m in METHODS] + [("bge-m3", "dense")]
+# Основная сетка: каждая нарезка × четыре метода на базовой модели. Сверху —
+# сравнения этапа 3 на baseline-нарезке: второй анализатор BM25, реранкинг без
+# гибрида и вторая модель эмбеддингов (только dense: на остальное модель не влияет).
+GRID_METHODS = ("dense", "bm25-lemma", "hybrid", "hybrid+rerank")
+CELLS: list[tuple[str, str, str]] = [(c, "e5-base", m) for c in CHUNKINGS for m in GRID_METHODS] + [
+    ("fixed512", "e5-base", "bm25-stem"),
+    ("fixed512", "e5-base", "dense+rerank"),
+    ("fixed512", "bge-m3", "dense"),
+]
 
 
 def derive(base: Config, *overrides: dict, version: str, table: str) -> Config:
@@ -95,13 +117,22 @@ def percentile(values: list[float], q: float) -> float | None:
     return float(np.percentile(values, q)) if values else None
 
 
-def summarize(result: dict, k: int) -> dict:
+def summarize(result: dict, k: int, token_lengths: dict[str, int] | None = None) -> dict:
+    """Агрегаты ячейки. ``token_lengths`` — длина каждого чанка в токенах.
+
+    Размер выданного контекста считается рядом с recall: длинный чанк покрывает
+    больше пунктов, и без этой колонки нарезка по статьям «выигрывала» бы
+    просто тем, что отдаёт генератору больше текста.
+    """
     agg = result["aggregates"]["primary"]
     latencies: dict[str, list[float]] = {}
+    context: list[int] = []
     for question in result["questions"]:
         for step, ms in question["latency_ms"].items():
             if step != "generation":
                 latencies.setdefault(step, []).append(ms)
+        if token_lengths is not None:
+            context.append(sum(token_lengths[c["chunk_id"]] for c in question["retrieved"][:k]))
     return {
         "n": agg.get("n", 0),
         f"recall@{k}": agg.get(f"recall@{k}"),
@@ -113,6 +144,7 @@ def summarize(result: dict, k: int) -> dict:
             for step, v in latencies.items()
         },
         "chunks": result["index"].get("chunks"),
+        "context_tokens": statistics.fmean(context) if context else None,
         "chunking_signature": result["index"].get("chunking_signature"),
         "failures": agg.get("retrieval_failures", []),
     }
@@ -125,7 +157,8 @@ def fmt(value, digits: int = 3) -> str:
 def render(rows: list[dict], k: int, n_info: dict) -> str:
     steps = ["dense", "bm25", "fusion", "rerank"]
     header = (
-        f"| chunking | embeddings | method | recall@{k} | MRR | article_recall@{k} | "
+        f"| chunking | embeddings | method | chunks | context tokens@{k} | "
+        f"recall@{k} | MRR | article_recall@{k} | "
         "latency p50, ms | latency p95, ms | " + " | ".join(f"{s} p50" for s in steps) + " |"
     )
     lines = [
@@ -134,7 +167,7 @@ def render(rows: list[dict], k: int, n_info: dict) -> str:
         "Latency is measured on CPU after warm-up.",
         "",
         header,
-        "|" + "---|" * (8 + len(steps)),
+        "|" + "---|" * (10 + len(steps)),
     ]
     for r in rows:
         lat = r["latency_ms"]
@@ -143,6 +176,8 @@ def render(rows: list[dict], k: int, n_info: dict) -> str:
             r["chunking"],
             r["embeddings"],
             r["method"],
+            str(r.get("chunks") or "—"),
+            fmt(r.get("context_tokens"), 0),
             fmt(r[f"recall@{k}"]),
             fmt(r["mrr"]),
             fmt(r[f"article_recall@{k}"]),
@@ -158,7 +193,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("--only", default=None, help="оставить ячейки, где метод содержит строку")
+    parser.add_argument(
+        "--only", default=None, help="оставить ячейки, где «нарезка/модель/метод» содержит строку"
+    )
     parser.add_argument("--results-dir", default="evals/results")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -167,43 +204,43 @@ def main() -> int:
     k = int(base.get("eval.k"))
     dataset = load_dataset(base.path_of("eval.dataset"))
 
+    tokenizer = build_tokenizer(base.get("chunking.tokenizer"))
     rows, runs = [], {}
     chunk_texts: dict[str, list[str]] = {}
-    for chunking, chunking_overrides in CHUNKINGS.items():
-        budget_config = derive(base, chunking_overrides, version="budget", table="unused")
-        for embeddings, method in CELLS:
-            if args.only and args.only not in method:
-                continue
-            table = f"exp_{chunking}_{embeddings}".replace("-", "_").replace(".", "_")
-            version = f"{chunking}/{embeddings}/{method}"
-            config = derive(
-                base,
-                chunking_overrides,
-                EMBEDDINGS[embeddings],
-                METHODS[method],
-                version=version,
-                table=table,
-            )
-            ensure_index(config, budget_config)
+    for chunking_name, embeddings, method in CELLS:
+        version = f"{chunking_name}/{embeddings}/{method}"
+        if args.only and args.only not in version:
+            continue
+        overrides = CHUNKINGS[chunking_name]
+        table = f"exp_{chunking_name}_{embeddings}"
+        for ch in "-+.":
+            table = table.replace(ch, "_")
+        config = derive(
+            base, overrides, EMBEDDINGS[embeddings], METHODS[method], version=version, table=table
+        )
+        budget_config = derive(base, overrides, version="budget", table="unused")
+        ensure_index(config, budget_config)
 
-            texts = [c.text for c in build_store(config).all_chunks()]
-            if chunk_texts.setdefault(chunking, texts) != texts:
-                raise RuntimeError(
-                    f"{version}: тексты чанков отличаются от других моделей той же нарезки — "
-                    "сравнение моделей было бы сравнением нарезок"
-                )
-
-            log.info("Ячейка %s", version)
-            result = EvalRunner(config, build_retriever(config)).run(dataset)
-            runs[version] = result
-            rows.append(
-                {
-                    "chunking": chunking,
-                    "embeddings": embeddings,
-                    "method": method,
-                    **summarize(result, k),
-                }
+        chunks = build_store(config).all_chunks()
+        texts = [c.text for c in chunks]
+        if chunk_texts.setdefault(chunking_name, texts) != texts:
+            raise RuntimeError(
+                f"{version}: тексты чанков отличаются от других моделей той же нарезки — "
+                "сравнение моделей было бы сравнением нарезок"
             )
+        token_lengths = {c.chunk_id: len(tokenizer.offsets(c.text)) for c in chunks}
+
+        log.info("Ячейка %s", version)
+        result = EvalRunner(config, build_retriever(config)).run(dataset)
+        runs[version] = result
+        rows.append(
+            {
+                "chunking": chunking_name,
+                "embeddings": embeddings,
+                "method": method,
+                **summarize(result, k, token_lengths),
+            }
+        )
 
     if not rows:
         print("Ни одной ячейки не выбрано.")

@@ -57,4 +57,11 @@ def test_table_states_n_and_marks_missing_steps():
     }
     table = retrieval_eval.render([row], 5, {"n": 2, "real": 1, "synthetic": 1})
     assert "n = 2" in table
-    assert "| fixed512 | e5-base | dense | 0.500 | 0.250 | — |" in table
+    assert "| fixed512 | e5-base | dense | 143 | — | 0.500 | 0.250 | — |" in table
+
+
+def test_context_size_sums_the_top_k_chunks():
+    result = result_with([{"retrieval": 1.0}])
+    result["questions"][0]["retrieved"] = [{"chunk_id": "a"}, {"chunk_id": "b"}, {"chunk_id": "c"}]
+    summary = retrieval_eval.summarize(result, k=2, token_lengths={"a": 100, "b": 50, "c": 999})
+    assert summary["context_tokens"] == 150
