@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 
 from kz_labor_rag.cli import build_retriever
-from kz_labor_rag.config import load_config
+from kz_labor_rag.config import load_config, load_env_file
 from kz_labor_rag.corpus.chunker import build_tokenizer
 from kz_labor_rag.eval.dataset import load_dataset
 from kz_labor_rag.eval.experiments import CHUNKINGS, cell_config
@@ -134,6 +134,7 @@ def main() -> int:
     )
     parser.add_argument("--results-dir", default="evals/results")
     args = parser.parse_args()
+    load_env_file()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     base = load_config()

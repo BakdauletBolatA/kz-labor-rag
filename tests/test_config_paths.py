@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -164,3 +165,30 @@ class TestSearchDepthIsOneKnob:
         from kz_labor_rag.cli import assert_search_depth_matches
 
         assert assert_search_depth_matches(load_config()) is None
+
+
+class TestEnvFile:
+    def test_loads_missing_variables_only(self, tmp_path, monkeypatch):
+        env = tmp_path / ".env"
+        env.write_text(
+            "# комментарий\nKZRAG_T1=one\nKZRAG_T2='two'\nKZRAG_T3=\nKZRAG_T4=file\n", "utf-8"
+        )
+        monkeypatch.delenv("KZRAG_T1", raising=False)
+        monkeypatch.delenv("KZRAG_T2", raising=False)
+        monkeypatch.setenv("KZRAG_T4", "shell")
+        from kz_labor_rag.config import load_env_file
+
+        loaded = load_env_file(env)
+        try:
+            assert loaded == ["KZRAG_T1", "KZRAG_T2"]
+            assert os.environ["KZRAG_T2"] == "two"
+            assert os.environ["KZRAG_T4"] == "shell"
+            assert "KZRAG_T3" not in os.environ
+        finally:
+            for name in loaded:
+                os.environ.pop(name, None)
+
+    def test_missing_file_is_fine(self, tmp_path):
+        from kz_labor_rag.config import load_env_file
+
+        assert load_env_file(tmp_path / "nope.env") == []

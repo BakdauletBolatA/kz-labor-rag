@@ -146,6 +146,30 @@ def _set_dotted(data: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+def load_env_file(path: str | Path | None = None) -> list[str]:
+    """Прочитать ``.env`` в окружение процесса. Возвращает имена загруженных переменных.
+
+    Уже заданные переменные не перезаписываются, пустые значения пропускаются:
+    ``.env`` — значения по умолчанию для локального запуска, а не способ
+    переопределить окружение. В Docker переменные приходят из compose.
+    """
+    root = find_repo_root()
+    path = Path(path) if path else (root / ".env" if root else None)
+    if path is None or not path.exists():
+        return []
+    loaded = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        name, value = name.strip(), value.strip().strip("'\"")
+        if value and name not in os.environ:
+            os.environ[name] = value
+            loaded.append(name)
+    return loaded
+
+
 def load_config(path: str | Path | None = None, *, apply_env: bool = True) -> Config:
     """Прочитать YAML и наложить разрешённые переменные окружения."""
     requested = Path(path or os.environ.get("KZRAG_CONFIG", DEFAULT_CONFIG_PATH))

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 
-from kz_labor_rag.config import load_config
+from kz_labor_rag.config import load_config, load_env_file
 from kz_labor_rag.corpus.parser import parse_file
 from kz_labor_rag.eval.review import ReviewSession
 
@@ -26,6 +26,7 @@ def main() -> int:
     parser.add_argument("--status", action="store_true", help="только показать прогресс")
     parser.add_argument("--dataset", default=None)
     args = parser.parse_args()
+    load_env_file()
 
     config = load_config()
     code = parse_file(

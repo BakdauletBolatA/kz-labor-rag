@@ -60,7 +60,27 @@ def reference_for(question: EvalQuestion, code: LaborCode) -> str:
     return "\n".join(lines)
 
 
-class ClaudeAnswerJudge:
+class _PromptedJudge:
+    def __init__(self, model: str, prompt_id: str, prompt_version: str, client) -> None:
+        self.model = model
+        self._prompt = load_prompt(prompt_id, prompt_version)
+        self._client = client
+
+    def _render(self, question, reference, context, answer) -> str:
+        return self._prompt.text.format(
+            question=question,
+            reference=reference,
+            context=context if isinstance(context, str) else format_context(context),
+            answer=answer,
+        )
+
+    @staticmethod
+    def _parse(text: str) -> AnswerVerdict:
+        data = json.loads(text)
+        return AnswerVerdict(data["correctness"], data["groundedness"], data["reasoning"])
+
+
+class ClaudeAnswerJudge(_PromptedJudge):
     def __init__(
         self,
         model: str,
@@ -70,10 +90,8 @@ class ClaudeAnswerJudge:
         effort: str = "medium",
         client=None,
     ) -> None:
-        self.model = model
+        super().__init__(model, prompt_id, prompt_version, client)
         self.effort = effort
-        self._prompt = load_prompt(prompt_id, prompt_version)
-        self._client = client
 
     @property
     def descriptor(self) -> dict[str, str]:
@@ -85,13 +103,6 @@ class ClaudeAnswerJudge:
             "effort": self.effort,
         }
 
-    def _get_client(self):
-        if self._client is None:
-            import anthropic
-
-            self._client = anthropic.Anthropic()
-        return self._client
-
     def judge(
         self,
         question: str,
@@ -102,14 +113,9 @@ class ClaudeAnswerJudge:
         """``context`` — фрагменты или уже собранный ``format_context`` текст."""
         import anthropic
 
-        prompt = self._prompt.text.format(
-            question=question,
-            reference=reference,
-            context=context if isinstance(context, str) else format_context(context),
-            answer=answer,
-        )
+        client = self._client or anthropic.Anthropic()
         try:
-            response = self._get_client().beta.messages.create(
+            response = client.beta.messages.create(
                 model=self.model,
                 max_tokens=16000,
                 betas=["server-side-fallback-2026-07-01"],
@@ -118,22 +124,102 @@ class ClaudeAnswerJudge:
                     "effort": self.effort,
                     "format": {"type": "json_schema", "schema": SCHEMA},
                 },
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "user", "content": self._render(question, reference, context, answer)}
+                ],
             )
         except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
             return AnswerVerdict(None, None, error=f"{type(exc).__name__}: {exc}")
         if response.stop_reason == "refusal":
             return AnswerVerdict(None, None, error="судья отказался оценивать")
-        text = next((b.text for b in response.content if b.type == "text"), "")
-        data = json.loads(text)
-        return AnswerVerdict(data["correctness"], data["groundedness"], data["reasoning"])
+        return self._parse(next((b.text for b in response.content if b.type == "text"), ""))
 
 
-def judge_available() -> str | None:
+class OpenAIAnswerJudge(_PromptedJudge):
+    """Тот же промпт и та же схема ответа, другой вендор."""
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        prompt_id: str = "answer_judge_ru",
+        prompt_version: str = "v1",
+        client=None,
+    ) -> None:
+        super().__init__(model, prompt_id, prompt_version, client)
+
+    @property
+    def descriptor(self) -> dict[str, str]:
+        return {
+            "backend": "openai",
+            "model": self.model,
+            "prompt": self._prompt.label,
+            "prompt_sha256": self._prompt.sha256,
+        }
+
+    def judge(
+        self,
+        question: str,
+        reference: str,
+        context: Sequence[RetrievedChunk] | str,
+        answer: str,
+    ) -> AnswerVerdict:
+        import openai
+
+        client = self._client or openai.OpenAI()
+        try:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "user", "content": self._render(question, reference, context, answer)}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": "answer_verdict", "schema": SCHEMA, "strict": True},
+                },
+            )
+        except (openai.APIStatusError, openai.APIConnectionError) as exc:
+            return AnswerVerdict(None, None, error=f"{type(exc).__name__}: {exc}")
+        message = response.choices[0].message
+        if getattr(message, "refusal", None):
+            return AnswerVerdict(None, None, error=f"судья отказался оценивать: {message.refusal}")
+        return self._parse(message.content or "")
+
+
+KEY_ENV = {
+    "anthropic": ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
+    "openai": ("OPENAI_API_KEY",),
+}
+
+
+def judge_available(provider: str = "anthropic") -> str | None:
     """Почему судью нельзя запустить, или None."""
-    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+    if provider not in KEY_ENV:
+        return f"неизвестный провайдер судьи '{provider}'"
+    if any(os.environ.get(name) for name in KEY_ENV[provider]):
         return None
-    return "ANTHROPIC_API_KEY не задан — судья не запускался, его метрики не измерены"
+    return f"{KEY_ENV[provider][0]} не задан — судья не запускался, его метрики не измерены"
+
+
+def build_answer_judge(config) -> tuple[object | None, str | None]:
+    """Судья по секции ``answer_judge`` конфига, либо причина, почему его нет."""
+    provider = config.get("answer_judge.provider")
+    if reason := judge_available(provider):
+        return None, reason
+    common = {
+        "prompt_id": config.get("answer_judge.prompt_id"),
+        "prompt_version": config.get("answer_judge.prompt_version"),
+    }
+    if provider == "openai":
+        return OpenAIAnswerJudge(config.get("answer_judge.openai_model"), **common), None
+    return (
+        ClaudeAnswerJudge(
+            config.get("answer_judge.anthropic_model"),
+            effort=config.get("answer_judge.effort"),
+            **common,
+        ),
+        None,
+    )
 
 
 def cohen_kappa(a: Sequence[str], b: Sequence[str]) -> float | None:

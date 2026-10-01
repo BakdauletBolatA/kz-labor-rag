@@ -18,9 +18,9 @@
 - correct_refusal — доля вопросов без ответа в кодексе, на которые система
   честно отказалась отвечать.
 
-LLM-судья (``answer_judge.model``, нужен ANTHROPIC_API_KEY) оценивает correctness по
-эталонным пунктам и groundedness по показанным фрагментам. Без ключа эти
-метрики записываются как null с причиной.
+LLM-судья (секция ``answer_judge``: OpenAI или Anthropic, нужен ключ вендора)
+оценивает correctness по эталонным пунктам и groundedness по показанным
+фрагментам. Без ключа эти метрики записываются как null с причиной.
 """
 
 from __future__ import annotations
@@ -36,14 +36,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from kz_labor_rag.cli import build_retriever
-from kz_labor_rag.config import load_config
+from kz_labor_rag.config import load_config, load_env_file
 from kz_labor_rag.corpus.parser import parse_file
 from kz_labor_rag.eval.answer_judge import (
     CORRECTNESS,
     GROUNDEDNESS,
-    ClaudeAnswerJudge,
+    build_answer_judge,
     cohen_kappa,
-    judge_available,
     reference_for,
 )
 from kz_labor_rag.eval.citations import cite
@@ -150,17 +149,7 @@ def setup(cell):
 
 
 def make_judge(base):
-    if reason := judge_available():
-        return None, reason
-    return (
-        ClaudeAnswerJudge(
-            base.get("answer_judge.model"),
-            prompt_id=base.get("answer_judge.prompt_id"),
-            prompt_version=base.get("answer_judge.prompt_version"),
-            effort=base.get("answer_judge.effort"),
-        ),
-        None,
-    )
+    return build_answer_judge(base)
 
 
 def run_judge(judge, question, code, record) -> None:
@@ -360,6 +349,7 @@ def main() -> int:
     mode.add_argument("--label", action="store_true")
     mode.add_argument("--agreement", action="store_true")
     args = parser.parse_args()
+    load_env_file()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     if args.prepare_labels:

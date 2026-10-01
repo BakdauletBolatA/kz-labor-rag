@@ -10,6 +10,8 @@ from conftest import make_chunk
 
 from kz_labor_rag.eval.answer_judge import (
     ClaudeAnswerJudge,
+    OpenAIAnswerJudge,
+    build_answer_judge,
     cohen_kappa,
     judge_available,
 )
@@ -58,9 +60,53 @@ def test_refusal_is_an_error_not_a_score():
 
 
 def test_missing_key_is_reported(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
-    assert "ANTHROPIC_API_KEY" in judge_available()
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    assert "ANTHROPIC_API_KEY" in judge_available("anthropic")
+    assert "OPENAI_API_KEY" in judge_available("openai")
+
+
+class FakeCompletions:
+    def __init__(self, content, refusal=None):
+        self.content = content
+        self.refusal = refusal
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        message = SimpleNamespace(content=self.content, refusal=self.refusal)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def openai_judge(content, refusal=None):
+    completions = FakeCompletions(content, refusal)
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    return OpenAIAnswerJudge("gpt-5", client=client), completions
+
+
+def test_openai_judge_uses_the_same_schema():
+    payload = {"reasoning": "", "correctness": "incorrect", "groundedness": "partially_grounded"}
+    judge, completions = openai_judge(json.dumps(payload))
+    verdict = judge.judge("вопрос", "эталон", "[Фрагмент 1 — ст. 54]\nтекст", "ответ")
+    assert (verdict.correctness, verdict.groundedness) == ("incorrect", "partially_grounded")
+    fmt = completions.calls[0]["response_format"]
+    assert fmt["json_schema"]["strict"] is True
+    assert "[Фрагмент 1 — ст. 54]" in completions.calls[0]["messages"][0]["content"]
+
+
+def test_openai_refusal_is_an_error():
+    judge, _ = openai_judge(None, refusal="не могу")
+    assert not judge.judge("в", "э", "к", "о").ok
+
+
+def test_provider_is_picked_from_config(monkeypatch):
+    from kz_labor_rag.config import load_config
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    config = load_config(apply_env=False)
+    config.data["answer_judge"]["provider"] = "openai"
+    judge, reason = build_answer_judge(config)
+    assert reason is None and isinstance(judge, OpenAIAnswerJudge)
 
 
 class TestKappa:
