@@ -64,3 +64,28 @@ class TestGround:
     def test_unnumbered_clause_is_cited_by_article(self):
         g = ground("Не менее двенадцати часов.\nИсточники: ст. 83", CONTEXT)
         assert g.citations == (Citation("83"),)
+
+
+class TestParaphrasedRefusal:
+    """Модель отказывается своими словами и иногда добавляет «Источники».
+
+    На вопросах без ответа в кодексе qwen2.5 писала «В Трудовом кодексе
+    Республики Казахстан ответа на этот вопрос нет» со строкой источников —
+    и такой отказ засчитывался как ответ, занижая correct_refusal.
+    """
+
+    def test_paraphrase_with_sources_is_a_refusal(self):
+        raw = (
+            "В Трудовом кодексе Республики Казахстан ответа на этот вопрос нет.\n"
+            "Источники: ст. 54 п. 1"
+        )
+        g = ground(raw, CONTEXT)
+        assert g.refused and not g.withheld
+        assert g.text == REFUSAL
+
+    def test_variant_wording_is_a_refusal(self):
+        assert ground("В Трудовом кодексе ответа на этот вопрос не нашлось.", CONTEXT).refused
+
+    def test_answer_mentioning_absence_later_is_not_a_refusal(self):
+        raw = "Нельзя: ст. 54 запрещает увольнение. Других оснований нет.\nИсточники: ст. 54 п. 1"
+        assert not ground(raw, CONTEXT).refused

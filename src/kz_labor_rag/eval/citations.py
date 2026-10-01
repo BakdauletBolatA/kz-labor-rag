@@ -61,8 +61,17 @@ def strip_sources(text: str) -> str:
     return _SOURCES.sub("", text).strip()
 
 
+# Модель отказывается и своими словами: «ответа на этот вопрос нет», «…не
+# нашлось», порой со строкой «Источники». Отказом считается только первое
+# предложение такого вида — фраза «других оснований нет» внутри ответа им не является.
+_REFUSAL = re.compile(
+    r"^в трудовом кодексе[^.]{0,60}?"
+    r"(?:ответа[^.]{0,40}?(?:не нашлось|нет|не найдено|отсутствует)|нет ответа)"
+)
+
+
 def is_refusal(text: str) -> bool:
-    return REFUSAL.rstrip(".").lower() in " ".join(text.lower().split())
+    return bool(_REFUSAL.match(" ".join(text.lower().split())))
 
 
 @dataclass(frozen=True)
