@@ -62,6 +62,8 @@ ENV_OVERRIDES: dict[str, str] = {
     "KZRAG_DEVICE": "embeddings.device",
     # В Docker Ollama живёт в соседнем контейнере, локально — на хосте.
     "KZRAG_OLLAMA_URL": "generation.base_url",
+    # Та же переменная говорит compose, какую модель скачать.
+    "KZRAG_GENERATION_MODEL": "generation.model",
 }
 
 
