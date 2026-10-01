@@ -44,7 +44,7 @@ def build_generator(config: Config) -> Generator:
     if env_name := missing_key_env(provider):
         log.warning(
             "%s не задан — генерация ответов отключена. Метрики поиска "
-            "(recall@k, MRR, clause-метрики) считаются как обычно, "
+            "(recall@k, MRR, article_recall@k) считаются как обычно, "
             "faithfulness и citation_validity будут null. "
             "Чтобы включить: скопируйте .env.example в .env и заполните %s.",
             env_name,
