@@ -26,7 +26,6 @@ kzrag-eval = "kz_labor_rag.cli:main"
 kzrag-corpus = "kz_labor_rag.corpus.cli:main"
 kzrag-index = "kz_labor_rag.index_cli:main"
 kzrag-search = "kz_labor_rag.debug_cli:main"
-kzrag-review = "kz_labor_rag.review_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -50,8 +49,5 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-# Таблица SPECS — это данные, а не код: вопрос, разметка и якорь цитаты
-# читаются в одну строку, перенос делает её нечитаемой.
-"scripts/build_synthetic_dataset.py" = ["E501"]
 # Фикстуры разметки — куски настоящего HTML, переносить их нельзя.
 "tests/test_parser.py" = ["E501"]

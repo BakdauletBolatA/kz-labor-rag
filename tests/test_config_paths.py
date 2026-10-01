@@ -86,7 +86,7 @@ class TestFallbackToPackageLocation:
 
     Вверх от него подниматься некуда, и единственная зацепка — каталог
     установленного пакета: при `pip install -e` он лежит в src/ того же
-    репозитория. Именно этот случай и падал: `kzrag-review status` из ~.
+    репозитория. Именно этот случай и падал: запуск CLI из ~.
     """
 
     def test_root_found_outside_repo(self, tmp_path, monkeypatch):

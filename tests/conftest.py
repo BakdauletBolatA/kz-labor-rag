@@ -128,7 +128,6 @@ def config() -> Config:
 
 PRODUCTION_FILES = (
     "evals/datasets/kz_labor_v1.jsonl",
-    "evals/datasets/REVIEW.md",
     "config/default.yaml",
     "src/kz_labor_rag/eval/prompts/REGISTRY.json",
     "src/kz_labor_rag/eval/prompts/answer_ru.v1.txt",

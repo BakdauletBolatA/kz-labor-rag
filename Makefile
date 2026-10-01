@@ -51,12 +51,12 @@ test: ## прогнать тесты (тесты pgvector пропустятся
 
 .PHONY: lint
 lint: ## ruff
-	$(VENV)/bin/ruff check src/ scripts/ tests/
+	$(VENV)/bin/ruff check .
 
 .PHONY: format
 format: ## отформатировать код
-	$(VENV)/bin/ruff format src/ scripts/ tests/
-	$(VENV)/bin/ruff check src/ scripts/ tests/ --fix
+	$(VENV)/bin/ruff format .
+	$(VENV)/bin/ruff check . --fix
 
 .PHONY: check
 check: lint test ## линтер плюс тесты
@@ -114,17 +114,9 @@ index-status: ## чем построен текущий индекс
 
 # --- датасет и eval ----------------------------------------------------------
 
-.PHONY: dataset
-dataset: ## пересобрать синтетическую часть датасета и файл ревью
-	$(PY) scripts/build_synthetic_dataset.py
-
 .PHONY: dataset-check
 dataset-check: ## сверить разметку эталона с текстом кодекса
 	$(VENV)/bin/kzrag-corpus check-dataset
-
-.PHONY: review
-review: ## сколько вопросов отревьюировано
-	$(VENV)/bin/kzrag-review status
 
 .PHONY: validate
 validate: ## проверить гейт готовности датасета
