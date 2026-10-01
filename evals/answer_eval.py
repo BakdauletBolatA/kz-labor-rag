@@ -18,7 +18,7 @@
 - correct_refusal — доля вопросов без ответа в кодексе, на которые система
   честно отказалась отвечать.
 
-LLM-судья (``judge.model``, нужен ANTHROPIC_API_KEY) оценивает correctness по
+LLM-судья (``answer_judge.model``, нужен ANTHROPIC_API_KEY) оценивает correctness по
 эталонным пунктам и groundedness по показанным фрагментам. Без ключа эти
 метрики записываются как null с причиной.
 """
@@ -152,7 +152,15 @@ def setup(cell):
 def make_judge(base):
     if reason := judge_available():
         return None, reason
-    return ClaudeAnswerJudge(base.get("judge.model")), None
+    return (
+        ClaudeAnswerJudge(
+            base.get("answer_judge.model"),
+            prompt_id=base.get("answer_judge.prompt_id"),
+            prompt_version=base.get("answer_judge.prompt_version"),
+            effort=base.get("answer_judge.effort"),
+        ),
+        None,
+    )
 
 
 def run_judge(judge, question, code, record) -> None:

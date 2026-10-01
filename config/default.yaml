@@ -131,6 +131,15 @@ judge:
   max_tokens: 1024
   temperature: 0.0
 
+# Судья ответов в evals/answer_eval.py: правильность по эталонным пунктам и
+# обоснованность по показанным фрагментам. Другой вендор и заметно сильнее
+# генератора; при отказе модели запрос переходит на запасную модель API.
+answer_judge:
+  model: claude-opus-5-5
+  prompt_id: answer_judge_ru
+  prompt_version: v1
+  effort: medium
+
 eval:
   dataset: evals/questions.jsonl
   results_dir: evals/results
