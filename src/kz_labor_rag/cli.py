@@ -20,28 +20,21 @@ from kz_labor_rag.eval.factory import build_generator, build_judge
 from kz_labor_rag.eval.prompts import PromptRegistryError
 from kz_labor_rag.eval.runner import EvalRunner, NoVerifiedQuestionsError, save_result
 from kz_labor_rag.indexer import index_mismatch
-from kz_labor_rag.retrieval.factory import build_retriever as _build_dense
+from kz_labor_rag.retrieval.factory import build_retriever as _build_retriever
+from kz_labor_rag.retrieval.factory import build_store
 from kz_labor_rag.retrieval.store import StoreError
 from kz_labor_rag.types import Retriever
 
 
 def build_retriever(config: Config) -> Retriever:
     """Собрать поиск по конфигу и убедиться, что индекс ему соответствует."""
-    backend = config.get("retrieval.implementation")
-    if backend != "dense":
-        raise NotImplementedError(
-            f"реализация поиска '{backend}' пока не поддержана. "
-            "В baseline это 'dense'; гибрид и reranking — отдельные итерации."
-        )
-
-    retriever = _build_dense(config)
-    if problem := index_mismatch(config, retriever.store):
+    if problem := index_mismatch(config, build_store(config)):
         raise StoreError(
             f"{problem}\n"
             "Прогон на индексе, не соответствующем конфигу, даёт правдоподобные, "
             "но бессмысленные числа."
         )
-    return retriever
+    return _build_retriever(config)
 
 
 def cmd_validate(args: argparse.Namespace) -> int:

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Sequence
 
 from kz_labor_rag.embeddings.encoder import Encoder
@@ -38,6 +39,7 @@ class DenseRetriever:
         # latency_ms.retrieval — в число, которое потом сравнивают между
         # итерациями. Проверяем один раз: пустой индекс всё равно роняет прогон.
         self._index_verified = False
+        self.last_timings: dict[str, float] = {}
 
     @property
     def version(self) -> str:
@@ -89,7 +91,9 @@ class DenseRetriever:
 
     def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
         self._verify_index()
+        t0 = time.perf_counter()
         vector = self.encoder.encode_query(query)
         limit = max(k, self.candidate_k or k)
         hits = self.store.search(vector, limit)
+        self.last_timings = {"dense": (time.perf_counter() - t0) * 1000}
         return hits[:k]

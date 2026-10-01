@@ -79,19 +79,32 @@ vector_store:
   index: none
 
 retrieval:
-  # dense — плотный поиск по косинусному сходству, реализация baseline.
+  # dense — косинусная близость e5; bm25 — лексический поиск с русской
+  # морфологией; hybrid — оба, слитые через reciprocal rank fusion.
   implementation: dense
   top_k: 5
-  # Сколько кандидатов достаётся до reranking. В baseline reranking нет,
-  # поэтому равно top_k.
+  # Сколько кандидатов dense достаёт из базы. Без реранкинга равно top_k.
   candidate_k: 5
+  bm25:
+    # lemma — pymorphy3 (словарная форма), stem — Snowball (обрезка окончаний).
+    analyzer: lemma
+    k1: 1.2
+    b: 0.75
   hybrid:
-    enabled: false
-    bm25_weight: 0.0
-    dense_weight: 1.0
+    # Сколько кандидатов каждый поиск отдаёт на слияние.
+    candidate_k: 30
+    # Константа RRF: 1 / (rrf_k + rank). 60 — значение из исходной статьи.
+    rrf_k: 60
   reranker:
     enabled: false
-    model: null
+    model: BAAI/bge-reranker-v2-m3
+    # Сколько кандидатов базового поиска переранжируется.
+    candidate_k: 20
+    # Пара «вопрос + чанк» в токенах. Чанк — до 512 токенов, вопрос короткий;
+    # 512 обрезали бы хвост чанка молча.
+    max_length: 1024
+    batch_size: 8
+    device: cpu
   query_expansion:
     enabled: false
 

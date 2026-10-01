@@ -147,6 +147,8 @@ class EvalRunner:
         t0 = time.perf_counter()
         chunks = list(self.retriever.search(q.question, self.k))
         latency["retrieval"] = (time.perf_counter() - t0) * 1000
+        # Шаги поиска (dense, bm25, fusion, rerank), если поиск их сообщает.
+        latency.update(getattr(self.retriever, "last_timings", {}))
 
         ranked = M.rank_articles(chunks)
 
