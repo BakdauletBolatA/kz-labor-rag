@@ -130,6 +130,14 @@ failures: ## показать вопросы, где эталон не попа�
 compare: ## таблица «до/после»: make compare A=... B=...
 	$(VENV)/bin/kzrag-eval compare $(A) $(B)
 
+.PHONY: review
+review: ## ревью тестового набора
+	$(PY) evals/review.py
+
 .PHONY: eval
-eval: ## прогнать eval и записать результат
+eval: ## все замеры и обновление таблиц в README
+	$(PY) eval.py
+
+.PHONY: eval-run
+eval-run: ## один прогон метрик поиска по текущему конфигу
 	$(VENV)/bin/kzrag-eval run

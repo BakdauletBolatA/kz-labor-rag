@@ -184,7 +184,8 @@ def cmd_run(args) -> int:
     note = (
         f"Judge: `{judge.model}` ({judge.descriptor['prompt']})."
         if judge
-        else f"Judge not run: {judge_reason}."
+        else f"Judge not run: no API key for `answer_judge.provider` = "
+        f"{base.get('answer_judge.provider')}."
     )
     table = render(cell, agg, generator.descriptor, note)
     print("\n" + table)
