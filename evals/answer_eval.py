@@ -6,7 +6,8 @@
     python evals/answer_eval.py --agreement         # согласие судьи с разметкой
 
 Поиск и генерация берутся из одной ячейки сравнительной таблицы (по умолчанию
-нарезка по пунктам с заголовком статьи и гибридный поиск), генерация — локальная
+нарезка по пунктам с заголовком статьи, гибридный поиск и реранкинг —
+то же, на чём работает сервис), генерация — локальная
 модель из ``generation`` конфига.
 
 Детерминированные метрики (без LLM):
@@ -53,7 +54,7 @@ from kz_labor_rag.eval.judge import format_context
 
 log = logging.getLogger("answer_eval")
 
-DEFAULT_CELL = ("clause+header", "e5-base", "hybrid")
+DEFAULT_CELL = ("clause+header", "e5-base", "hybrid+rerank")
 LABELS = Path("evals/manual_labels.jsonl")
 
 

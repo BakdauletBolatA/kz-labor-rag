@@ -14,6 +14,8 @@ from kz_labor_rag.retrieval.rerank import RerankingRetriever
 
 def config_with(**overrides):
     config = load_config(apply_env=False)
+    # Тесты задают реранкер сами, а не наследуют его из конфига сервиса.
+    config.data["retrieval"]["reranker"]["enabled"] = False
     for dotted, value in overrides.items():
         node = config.data
         *path, last = dotted.split("__")

@@ -39,7 +39,8 @@ flowchart LR
         F --> H
         G --> I[Reciprocal rank fusion]
         H --> I
-        I --> J[Top-5 fragments<br/>labelled with their clauses]
+        I --> R2[Cross-encoder rerank<br/>top 20 → top 5]
+        R2 --> J[Top-5 fragments<br/>labelled with their clauses]
         J --> K[qwen2.5:7b-instruct<br/>via Ollama]
         K --> L{Citation check:<br/>does every cited clause<br/>appear in the fragments?}
         L -- yes --> M[Answer + sources]
@@ -54,13 +55,14 @@ flowchart LR
 
 The service is a thin FastAPI wrapper (`src/kz_labor_rag/api.py`) over the
 library; the evaluation scripts import the same library, so the API and the
-measurements cannot drift apart. A cross-encoder reranker
-(`BAAI/bge-reranker-v2-m3`) is implemented and measured but switched off in the
-service: on CPU it costs most of the request time (see the retrieval table).
+measurements cannot drift apart. After hybrid fusion a cross-encoder
+(`BAAI/bge-reranker-v2-m3`) re-orders the top 20 candidates; this combination
+was picked from the retrieval table below, not before it existed.
 
 ## How to run
 
-Requirements: Docker with about 8 GB of memory and 15 GB of disk.
+Requirements: Docker with about 10 GB of memory and 20 GB of disk (the
+generation model and the reranker are loaded at the same time).
 
 ```bash
 cp .env.example .env
@@ -276,14 +278,19 @@ cites a sub-item (`8)` of clause 1) as if it were clause 8; the check then
 withholds an answer that was right. Refusals also came paraphrased ("ответа на
 этот вопрос нет") and with a sources line, and were briefly counted as answers.
 
-**CPU is the bottleneck, not retrieval.** The reranker takes most of the
-request time on CPU, and answer generation in Docker on CPU takes minutes per
-answer (`generation p50` in the answer table). The service runs without the
-reranker; on a Mac, native Ollama is the practical option.
+**I picked the service configuration before the data, and the data disagreed.**
+The service first ran hybrid search without the reranker: the reranker costs
+seconds per query on CPU, and BM25 "should" help with legal wording. On the
+verified set, hybrid was worse than plain dense on clause chunks, and the
+reranker gave the largest single gain. Its seconds are also small next to
+generation, which takes minutes per answer on CPU in Docker (`generation p50`
+in the answer table). The service now runs hybrid search with reranking; on a
+Mac, native Ollama is the practical option for generation.
 
-**Next steps:** verify the rest of the set and rerun `eval.py`; a prompt that
-tells the model to cite clause numbers only from the fragment labels, measured
-as its own iteration; reranking only the top 10 to cut its cost.
+**Next steps:** label the rest of the answers so the judge agreement means
+something; a prompt that tells the model to cite clause numbers only from the
+fragment labels, measured as its own iteration; dense + rerank on clause chunks,
+which the table does not cover yet.
 
 ## Recording a one-minute demo
 
