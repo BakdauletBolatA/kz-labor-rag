@@ -188,8 +188,9 @@ Cell: `clause+header/e5-base/hybrid`, generator: `qwen2.5:7b-instruct` (answer_r
 
 ### Can the judge be trusted?
 
-Agreement between the judge and hand labels on 20 answers
-(`evals/manual_labels.jsonl`, labelled with `python evals/answer_eval.py --label`):
+Agreement between the judge and hand labels on answers from
+`evals/manual_labels.jsonl` (labelled with `python evals/answer_eval.py --label`;
+the number of labelled answers is in the table):
 
 <!-- BEGIN judge_agreement -->
 _Not measured yet: run `python eval.py` (evals/results/judge_agreement.md)._
