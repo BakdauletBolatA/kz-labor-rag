@@ -68,3 +68,43 @@ def test_context_size_sums_the_top_k_chunks():
 
 def test_table_names_are_valid_sql_identifiers():
     assert table_name("clause+header", "e5-base") == "exp_clause_header_e5_base"
+
+
+def run_with(recalls, rrs):
+    return {
+        "questions": [
+            {"id": f"q{i}", "metrics": {"recall_at_k": r, "reciprocal_rank": rr}}
+            for i, (r, rr) in enumerate(zip(recalls, rrs, strict=True))
+        ]
+    }
+
+
+def test_intervals_and_paired_difference_against_the_baseline():
+    rows = [
+        {"chunking": "fixed512", "embeddings": "e5-base", "method": "dense"},
+        {"chunking": "clause", "embeddings": "e5-base", "method": "dense"},
+    ]
+    runs = {
+        "fixed512/e5-base/dense": run_with([0.0] * 40 + [1.0] * 40, [0.5] * 80),
+        "clause/e5-base/dense": run_with([1.0] * 70 + [0.0] * 10, [0.5] * 80),
+    }
+    retrieval_eval.add_intervals(rows, runs, seed=1)
+    assert rows[0]["recall_ci"][0] < 0.5 < rows[0]["recall_ci"][1]
+    assert rows[0]["vs_baseline"] == "baseline"
+    delta = rows[1]["vs_baseline"]
+    assert delta["significant"] and delta["low"] > 0
+
+
+def test_table_shows_intervals_and_marks_significant_deltas():
+    row = {
+        "chunking": "clause",
+        "embeddings": "e5-base",
+        "method": "dense",
+        **retrieval_eval.summarize(result_with([{"retrieval": 5.0}]), k=5),
+        "recall_ci": (0.4, 0.6),
+        "mrr_ci": (0.2, 0.3),
+        "vs_baseline": {"mean": 0.1, "low": 0.02, "high": 0.18, "significant": True},
+    }
+    table = retrieval_eval.render([row], 5, {"n": 2, "real": 1, "synthetic": 1})
+    assert "0.500 [0.40, 0.60]" in table
+    assert "+0.100 [+0.02, +0.18] *" in table
