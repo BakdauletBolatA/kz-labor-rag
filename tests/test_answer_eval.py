@@ -86,3 +86,26 @@ def test_label_writes_do_not_clobber_another_session(tmp_path, monkeypatch):
     saved = {r["id"]: r for r in answer_eval.read_labels()}
     assert saved["a"]["label_correctness"] == "correct"
     assert saved["b"]["label_correctness"] == "incorrect"
+
+
+class TestCheckpoint:
+    """Прогон ответов идёт часами; обрыв не должен терять готовое."""
+
+    def test_records_survive_and_resume(self, tmp_path):
+        ckpt = answer_eval.Checkpoint(tmp_path / "partial.jsonl", key={"cell": "a"})
+        ckpt.add({"id": "q1", "answer": "x", "_hits": ["не сериализуется"]})
+        again = answer_eval.Checkpoint(tmp_path / "partial.jsonl", key={"cell": "a"})
+        assert [r["id"] for r in again.records] == ["q1"]
+        assert "_hits" not in again.records[0]
+
+    def test_other_settings_start_from_scratch(self, tmp_path):
+        answer_eval.Checkpoint(tmp_path / "partial.jsonl", key={"cell": "a"}).add({"id": "q1"})
+        other = answer_eval.Checkpoint(tmp_path / "partial.jsonl", key={"cell": "b"})
+        assert other.records == []
+
+    def test_done_removes_the_file(self, tmp_path):
+        path = tmp_path / "partial.jsonl"
+        ckpt = answer_eval.Checkpoint(path, key={"cell": "a"})
+        ckpt.add({"id": "q1"})
+        ckpt.done()
+        assert not path.exists()
