@@ -34,6 +34,7 @@ TABLES = {
     "answer_table": RESULTS / "answer_table.md",
     "judge_agreement": RESULTS / "judge_agreement.md",
     "answer_comparison": RESULTS / "answer_comparison.md",
+    "cloud_comparison": RESULTS / "cloud_comparison.md",
 }
 
 
