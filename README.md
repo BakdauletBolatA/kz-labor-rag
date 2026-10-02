@@ -298,6 +298,27 @@ cites a sub-item (`8)` of clause 1) as if it were clause 8; the check then
 withholds an answer that was right. Refusals also came paraphrased ("ответа на
 этот вопрос нет") and with a sources line, and were briefly counted as answers.
 
+**A prompt change that was supposed to fix false refusals made them worse.**
+On the v2 run, 8 answerable questions were refused although every required
+clause was in the context. Prompt v3 changed one rule — refuse only when
+nothing in the fragments is relevant — and was measured on the same questions
+with the same retrieved context. It fixed 2 of those refusals and created 7 new
+ones, 5 of them with the answer in the context; a longer, more prominent
+refusal rule seems to push a 7B model towards refusing. The service stays on
+v2, and the comparison is kept (`python evals/answer_eval.py --compare`):
+
+<!-- BEGIN answer_comparison -->
+Paired comparison on the same questions: `answer_ru@v2` (clause+header/e5-base/hybrid+rerank) → `answer_ru@v3` (clause+header/e5-base/hybrid+rerank). Δ is after minus before, 95% paired bootstrap; `*` — the interval excludes zero.
+
+| metric | n | before | after | Δ [95% CI] |
+|---|---|---|---|---|
+| correctness (answerable) | 72 | 0.549 | 0.458 | -0.090 [-0.18, +0.00] |
+| groundedness | 82 | 0.841 | 0.841 | +0.000 [-0.07, +0.07] |
+| answer_rate | 72 | 0.792 | 0.736 | -0.056 [-0.14, +0.03] |
+| citation_hit | 72 | 0.681 | 0.611 | -0.069 [-0.15, +0.01] |
+| correct_refusal | 10 | 0.800 | 0.900 | +0.100 [+0.00, +0.30] |
+<!-- END answer_comparison -->
+
 **The judge needed checking too.** On the 20 hand-labelled answers the judge
 agreed on correctness almost perfectly but marked honest refusals as
 "ungrounded" whenever the Code did answer the question — it mixed correctness
