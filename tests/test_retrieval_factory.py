@@ -16,6 +16,8 @@ def config_with(**overrides):
     config = load_config(apply_env=False)
     # Тесты задают реранкер сами, а не наследуют его из конфига сервиса.
     config.data["retrieval"]["reranker"]["enabled"] = False
+    # Кэш эмбеддингов создаётся при сборке поиска; боевой каталог тестам трогать нельзя.
+    config.data["embeddings"]["cache"]["enabled"] = False
     for dotted, value in overrides.items():
         node = config.data
         *path, last = dotted.split("__")
