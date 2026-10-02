@@ -109,15 +109,15 @@ depend on the sample size and are meaningful now.
 ### Test set
 
 <!-- BEGIN dataset_summary -->
-86 questions in `evals/questions.jsonl`: 76 answerable, 10 unanswerable; 15 real user questions, 71 written for this set. **3 verified by hand** — metrics are computed on these only.
+86 questions in `evals/questions.jsonl`: 76 answerable, 10 unanswerable; 15 real user questions, 71 written for this set. **84 verified** — metrics are computed on these only: 3 checked by hand, 81 by a model-assisted review pass. Random spot check of the model-reviewed questions by hand: 0 of 0 confirmed.
 
 | type | questions | verified |
 |---|---|---|
-| fact | 13 | 0 |
-| number | 22 | 1 |
-| condition | 25 | 1 |
-| multi | 16 | 1 |
-| unanswerable | 10 | 0 |
+| fact | 12 | 12 |
+| number | 18 | 18 |
+| condition | 23 | 22 |
+| multi | 23 | 22 |
+| unanswerable | 10 | 10 |
 <!-- END dataset_summary -->
 
 ### Retrieval: chunking × retrieval method
@@ -212,9 +212,19 @@ _Not measured yet: run `python eval.py` (evals/results/judge_agreement.md)._
   parsed Code and the surrounding sentence is cut out verbatim; the required
   clauses are derived from where those quotes sit. A quote that is not in the
   Code fails the build.
-- Every question starts as `verified: false`. `python evals/review.py` shows the
-  question with the full text of its clauses and lets the reviewer verify,
-  re-point the clauses, or delete the question; only verified questions count.
+- Every question starts as `verified: false`; only verified questions count.
+  `python evals/review.py` shows the question with the full text of its
+  clauses and lets the reviewer verify, re-point the clauses, or delete it.
+- **Who verified what is recorded per question** (`verified_by`). A few
+  questions were checked by hand; the rest went through a model-assisted
+  review pass that read every question against the full text of its clauses
+  and the neighbouring ones, re-pointed the gold where a key clause was missing
+  (the edits and their reasons are in `evals/review_notes.md` and in each
+  question's `notes`), and left two disputable questions unverified. To keep
+  that pass honest, a seeded random sample of the model-reviewed questions is
+  checked by hand (`python evals/review.py --spot-check 15`); the confirmation
+  rate is reported in the summary above, and a rejected question drops out of
+  the metrics.
 - A 15-question Kazakh slice exists in `evals/datasets/kz_labor_v1.jsonl` but
   is frozen: the corpus is Russian, and cross-lingual retrieval is a separate
   project.
