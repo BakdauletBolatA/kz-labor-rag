@@ -414,7 +414,13 @@ def cmd_rescore(args) -> int:
     обращений к судье.
     """
     out = Path(args.results_dir)
-    latest = latest_run(out, args.generator or "ollama")
+    # Явный путь — когда в таблицу должен попасть не последний прогон, а тот,
+    # на котором работает сервис (например, после отката неудачной итерации).
+    latest = (
+        Path(args.rescore)
+        if args.rescore != "latest"
+        else latest_run(out, args.generator or "ollama")
+    )
     payload = json.loads(latest.read_text("utf-8"))
     agg = aggregate(payload["questions"], seed=int(load_config().get("eval.seed")))
     payload["aggregates"] = agg
@@ -698,7 +704,13 @@ def main() -> int:
     mode.add_argument("--label", action="store_true")
     mode.add_argument("--agreement", action="store_true")
     mode.add_argument("--retry-failed", action="store_true")
-    mode.add_argument("--rescore", action="store_true")
+    mode.add_argument(
+        "--rescore",
+        nargs="?",
+        const="latest",
+        metavar="RUN.json",
+        help="пересчитать таблицу из сохранённого прогона (по умолчанию — последнего)",
+    )
     mode.add_argument("--compare", nargs=2, metavar=("BEFORE.json", "AFTER.json"))
     args = parser.parse_args()
     load_env_file()
