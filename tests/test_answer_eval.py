@@ -219,3 +219,14 @@ def test_compare_pairs_questions_and_reports_the_refusal_tradeoff():
     assert rows["answer_rate"]["mean"] == 1.0
     assert rows["correct_refusal"]["mean"] == -1.0
     assert rows["correct_refusal"]["n"] == 5
+
+
+def test_latest_run_is_picked_per_generator(tmp_path):
+    import json
+
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    for stamp, backend in (("20261001T000000Z", "ollama"), ("20261002T000000Z", "deepseek")):
+        (answers / f"{stamp}.json").write_text(json.dumps({"generator": {"backend": backend}}))
+    assert answer_eval.latest_run(tmp_path, "ollama").name == "20261001T000000Z.json"
+    assert answer_eval.latest_run(tmp_path, "deepseek").name == "20261002T000000Z.json"

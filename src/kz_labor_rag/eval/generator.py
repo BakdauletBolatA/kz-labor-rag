@@ -176,6 +176,34 @@ class AnthropicGenerator:
         )
 
 
+def grounded_generation(
+    raw: str,
+    context: Sequence[RetrievedChunk],
+    backend: str,
+    model: str,
+    prompt: Prompt,
+    **usage,
+) -> Generation:
+    """Ответ модели после проверки ссылок; одинаково для локальной и облачной модели."""
+    grounded = ground(raw, context)
+    return Generation(
+        answer=grounded.text,
+        cited_articles=tuple(
+            dict.fromkeys(c.article for c in (*grounded.citations, *grounded.invalid_citations))
+        ),
+        citations=tuple(str(c) for c in grounded.citations),
+        invalid_citations=tuple(str(c) for c in grounded.invalid_citations),
+        refused=grounded.refused,
+        withheld=grounded.withheld,
+        raw=raw,
+        backend=backend,
+        model=model,
+        prompt_label=prompt.label,
+        prompt_sha256=prompt.sha256,
+        **usage,
+    )
+
+
 @dataclass
 class OllamaGenerator:
     """Генератор на локальной модели через HTTP API Ollama.
@@ -243,23 +271,7 @@ class OllamaGenerator:
                     break
 
     def finish(self, raw: str, context: Sequence[RetrievedChunk], **usage) -> Generation:
-        grounded = ground(raw, context)
-        return Generation(
-            answer=grounded.text,
-            cited_articles=tuple(
-                dict.fromkeys(c.article for c in (*grounded.citations, *grounded.invalid_citations))
-            ),
-            citations=tuple(str(c) for c in grounded.citations),
-            invalid_citations=tuple(str(c) for c in grounded.invalid_citations),
-            refused=grounded.refused,
-            withheld=grounded.withheld,
-            raw=raw,
-            backend="ollama",
-            model=self.model,
-            prompt_label=self._prompt.label,
-            prompt_sha256=self._prompt.sha256,
-            **usage,
-        )
+        return grounded_generation(raw, context, "ollama", self.model, self._prompt, **usage)
 
     def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation:
         try:
@@ -278,6 +290,86 @@ class OllamaGenerator:
             context,
             input_tokens=body.get("prompt_eval_count"),
             output_tokens=body.get("eval_count"),
+        )
+
+
+@dataclass
+class CloudGenerator:
+    """Облачная модель через OpenAI-совместимый API (DeepSeek, xAI и другие).
+
+    Нужна для сравнения с локальной моделью на тех же вопросах, тем же
+    промптом и с той же проверкой ссылок; ключ берётся из ``api_key_env``.
+    """
+
+    model: str
+    base_url: str
+    api_key_env: str
+    backend: str
+    prompt_id: str = "answer_ru"
+    prompt_version: str = "v2"
+    max_tokens: int = 512
+    temperature: float = 0.0
+    timeout: float = 120.0
+    client: object = None
+    _prompt: Prompt = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._prompt = load_prompt(self.prompt_id, self.prompt_version)
+
+    @property
+    def descriptor(self) -> dict[str, str]:
+        return {
+            "backend": self.backend,
+            "model": self.model,
+            "prompt": self._prompt.label,
+            "prompt_sha256": self._prompt.sha256,
+            "temperature": str(self.temperature),
+        }
+
+    def _client(self):
+        if self.client is None:
+            import openai
+
+            self.client = openai.OpenAI(
+                api_key=os.environ[self.api_key_env], base_url=self.base_url, timeout=self.timeout
+            )
+        return self.client
+
+    def _create(self, question: str, context: Sequence[RetrievedChunk], stream: bool):
+        prompt = self._prompt.text.format(question=question, context=format_context(context))
+        return self._client().chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            stream=stream,
+        )
+
+    def stream(self, question: str, context: Sequence[RetrievedChunk]) -> Iterator[str]:
+        for chunk in self._create(question, context, stream=True):
+            if chunk.choices and (piece := chunk.choices[0].delta.content):
+                yield piece
+
+    def finish(self, raw: str, context: Sequence[RetrievedChunk], **usage) -> Generation:
+        return grounded_generation(raw, context, self.backend, self.model, self._prompt, **usage)
+
+    def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation:
+        try:
+            response = self._create(question, context, stream=False)
+        except Exception as exc:  # noqa: BLE001 — один упавший вопрос не роняет прогон
+            return Generation(
+                answer="",
+                backend=self.backend,
+                model=self.model,
+                prompt_label=self._prompt.label,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        usage = getattr(response, "usage", None)
+        return self.finish(
+            (response.choices[0].message.content or "").strip(),
+            context,
+            input_tokens=getattr(usage, "prompt_tokens", None),
+            output_tokens=getattr(usage, "completion_tokens", None),
         )
 
 
