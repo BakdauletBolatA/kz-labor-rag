@@ -25,7 +25,10 @@ Status = Literal["ready", "draft"]
 # unanswerable — ответа в Трудовом кодексе нет.
 QUESTION_TYPES = ("fact", "number", "condition", "multi", "unanswerable")
 
-DATASET_SCHEMA_VERSION = "4.0"
+VERIFIERS = ("human", "model")
+HUMAN_CHECKS = ("confirmed", "rejected")
+
+DATASET_SCHEMA_VERSION = "4.1"
 
 
 class DatasetError(ValueError):
@@ -66,8 +69,11 @@ class EvalQuestion:
     эталона поиска нет, зато в ``notes`` обязано быть сказано, где ответ на
     самом деле (другой кодекс или закон).
 
-    ``verified`` — разметку проверил человек. Метрики считаются только по таким
-    вопросам.
+    ``verified`` — разметка проверена. Метрики считаются только по таким
+    вопросам. ``verified_by`` говорит, кем: ``human`` или ``model``
+    (проверка моделью с выборочным контролем человека). ``human_check`` —
+    итог такого контроля для вопроса, проверенного моделью: ``confirmed``
+    или ``rejected``.
 
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
@@ -92,6 +98,8 @@ class EvalQuestion:
     source_url: str | None = None
     status: Status = "ready"
     verified: bool = False
+    verified_by: str | None = None
+    human_check: str | None = None
     notes: str = ""
     tags: tuple[str, ...] = ()
 
@@ -203,6 +211,18 @@ class EvalQuestion:
             if not str(raw.get("notes") or "").strip():
                 fail("у вопроса типа unanswerable в notes должно быть сказано, где ответ")
 
+        verified = bool(raw.get("verified", False))
+        # Отметки, поставленные до появления поля, ставил человек.
+        verified_by = (raw.get("verified_by") or "human") if verified else None
+        if verified_by not in (None, *VERIFIERS):
+            fail(f"verified_by='{verified_by}', допустимы: {', '.join(VERIFIERS)}")
+        human_check = raw.get("human_check") or None
+        if human_check is not None:
+            if human_check not in HUMAN_CHECKS:
+                fail(f"human_check='{human_check}', допустимы: {', '.join(HUMAN_CHECKS)}")
+            if verified_by == "human":
+                fail("human_check — контроль проверки моделью; вопрос проверен человеком")
+
         return cls(
             id=str(raw["id"]),
             question=str(raw.get("question") or "").strip(),
@@ -216,7 +236,9 @@ class EvalQuestion:
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
             status=status,
-            verified=bool(raw.get("verified", False)),
+            verified=verified,
+            verified_by=verified_by,
+            human_check=human_check,
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
         )
@@ -248,6 +270,8 @@ class EvalQuestion:
             "evidence": [{"article": e.article, "quote": e.quote} for e in self.evidence],
             "status": self.status,
             "verified": self.verified,
+            "verified_by": self.verified_by,
+            "human_check": self.human_check,
         }
         if self.notes:
             out["notes"] = self.notes

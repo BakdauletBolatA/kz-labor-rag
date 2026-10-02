@@ -133,7 +133,13 @@ class ReviewSession:
             counts = by_type.setdefault(q.type, [0, 0])
             counts[0] += q.verified
             counts[1] += 1
-        lines = [f"Проверено {done} из {len(ready)}."]
+        by_model = sum(1 for q in ready if q.verified_by == "model")
+        checked = [q for q in ready if q.human_check]
+        confirmed = sum(1 for q in checked if q.human_check == "confirmed")
+        lines = [
+            f"Проверено {done} из {len(ready)} (моделью: {by_model}). "
+            f"Выборочная проверка человеком: {confirmed} из {len(checked)} подтверждено."
+        ]
         lines += [f"  {t:13} {d} / {n}" for t, (d, n) in sorted(by_type.items())]
         return "\n".join(lines)
 
@@ -188,7 +194,9 @@ class ReviewSession:
             self.show(q)
             choice = self.ask(f"\n{HELP}\n> ").strip().lower()
             if choice == "v":
-                self._replace(replace(q, verified=True), q.id)
+                self._replace(
+                    replace(q, verified=True, verified_by="human", human_check=None), q.id
+                )
                 return True
             if choice == "s":
                 return True
@@ -207,6 +215,41 @@ class ReviewSession:
                     self.say(f"Не получилось: {exc}")
                 continue
             self.say("Не понял команду.")
+
+    def spot_check(self, n: int, *, seed: int) -> None:
+        """Показать n случайных вопросов, проверенных моделью, для проверки человеком.
+
+        Выборка случайная и воспроизводимая (seed): выбирать «удобные» вопросы
+        руками значило бы проверять не модель, а свой выбор.
+        """
+        import random
+
+        pool = sorted(
+            q.id for q in self.dataset.ready if q.verified_by == "model" and q.human_check is None
+        )
+        sample = random.Random(seed).sample(pool, min(n, len(pool)))
+        for i, qid in enumerate(sample, start=1):
+            q = self._get(qid)
+            self.say(f"\nВыборочная проверка {i}/{len(sample)}")
+            self.show(q)
+            choice = ""
+            while choice not in ("y", "n", "s", "q"):
+                choice = (
+                    self.ask("\nРазметка верна? [y — да, n — нет, s — пропустить, q — выйти] > ")
+                    .strip()
+                    .lower()
+                )
+            if choice == "q":
+                break
+            if choice == "s":
+                continue
+            if choice == "y":
+                self._replace(replace(q, human_check="confirmed"), qid)
+            else:
+                self._replace(
+                    replace(q, verified=False, verified_by=None, human_check="rejected"), qid
+                )
+        self.say("\n" + self.status())
 
     def run(self, ids: list[str] | None = None) -> None:
         if ids:

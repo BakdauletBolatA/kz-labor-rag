@@ -498,3 +498,33 @@ class TestShippedDataset:
         repealed = {a.number for a in code if a.is_repealed}
         cited = {n for x in dataset.ready for n in x.required_articles}
         assert not (cited & repealed), "эталон ссылается на исключённые статьи"
+
+
+class TestProvenance:
+    """Кто проверял вопрос — человек или модель — записывается явно.
+
+    README обязан честно говорить, чьей проверке стоит верить: «verified by
+    hand» про вопросы, которые проверяла модель, был бы неправдой.
+    """
+
+    def test_existing_verified_questions_default_to_human(self):
+        raw = {k: v for k, v in VALID.items()}
+        assert EvalQuestion.from_dict(raw).verified_by == "human"
+
+    def test_model_verification_is_kept(self):
+        assert q(verified_by="model").verified_by == "model"
+
+    def test_unknown_verifier_rejected(self):
+        with pytest.raises(DatasetError, match="verified_by"):
+            q(verified_by="intern")
+
+    def test_unverified_has_no_verifier(self):
+        assert q(verified=False).verified_by is None
+
+    def test_spot_check_only_for_model_verified(self):
+        with pytest.raises(DatasetError, match="human_check"):
+            q(verified_by="human", human_check="confirmed")
+
+    def test_roundtrip(self):
+        x = q(verified_by="model", human_check="confirmed")
+        assert EvalQuestion.from_dict(x.to_dict()) == x

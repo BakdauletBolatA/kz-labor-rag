@@ -40,13 +40,20 @@ def dataset_summary(dataset: EvalDataset) -> str:
     verified = dataset.verified
     by_type = Counter(q.type for q in ready)
     verified_by_type = Counter(q.type for q in verified)
+    by_human = sum(1 for q in verified if q.verified_by == "human")
+    by_model = sum(1 for q in verified if q.verified_by == "model")
+    checked = [q for q in ready if q.human_check]
+    confirmed = sum(1 for q in checked if q.human_check == "confirmed")
     lines = [
         f"{len(ready)} questions in `evals/questions.jsonl`: "
         f"{sum(1 for q in ready if not q.is_unanswerable)} answerable, "
         f"{sum(1 for q in ready if q.is_unanswerable)} unanswerable; "
         f"{sum(1 for q in ready if q.origin == 'real')} real user questions, "
         f"{sum(1 for q in ready if q.origin == 'synthetic')} written for this set. "
-        f"**{len(verified)} verified by hand** — metrics are computed on these only.",
+        f"**{len(verified)} verified** — metrics are computed on these only: "
+        f"{by_human} checked by hand, {by_model} by a model-assisted review pass. "
+        f"Random spot check of the model-reviewed questions by hand: "
+        f"{confirmed} of {len(checked)} confirmed.",
         "",
         "| type | questions | verified |",
         "|---|---|---|",

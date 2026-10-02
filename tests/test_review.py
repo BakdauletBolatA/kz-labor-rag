@@ -186,3 +186,39 @@ class TestConcurrentSessions:
         saved = by_id(path)
         assert saved["a"].verified is True
         assert saved["b"].verified is True
+
+
+class TestSpotCheck:
+    """Выборочная проверка человеком вопросов, которые проверила модель."""
+
+    def model_verified(self, path, ids):
+        import json
+
+        rows = [json.loads(line) for line in path.read_text("utf-8").splitlines()]
+        for r in rows:
+            if r["id"] in ids:
+                r["verified"], r["verified_by"] = True, "model"
+        path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8")
+
+    def test_confirm_and_reject(self, path, code):
+        self.model_verified(path, {"a", "b"})
+        s, _ = session(path, code, ["y", "n"])
+        s.spot_check(2, seed=1)
+        saved = by_id(path)
+        checks = {saved[i].human_check for i in ("a", "b")}
+        assert checks == {"confirmed", "rejected"}
+        rejected = next(saved[i] for i in ("a", "b") if saved[i].human_check == "rejected")
+        # Отклонённый человеком вопрос в метрики не идёт.
+        assert rejected.verified is False
+
+    def test_only_model_verified_questions_are_sampled(self, path, code):
+        self.model_verified(path, {"a"})
+        s, out = session(path, code, ["y"])
+        s.spot_check(5, seed=1)
+        assert by_id(path)["a"].human_check == "confirmed"
+        assert by_id(path)["b"].human_check is None
+
+    def test_manual_verify_marks_human(self, path, code):
+        s, _ = session(path, code, ["v", "q"])
+        s.run()
+        assert by_id(path)["a"].verified_by == "human"

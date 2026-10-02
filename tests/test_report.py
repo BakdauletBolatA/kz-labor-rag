@@ -46,7 +46,8 @@ def test_dataset_summary_counts_verified_separately():
     text = dataset_summary(ds)
     assert "3 questions" in text
     assert "2 answerable, 1 unanswerable" in text
-    assert "**1 verified by hand**" in text
+    assert "**1 verified**" in text
+    assert "1 checked by hand, 0 by a model-assisted review pass" in text
     assert "| condition | 2 | 1 |" in text
 
 
