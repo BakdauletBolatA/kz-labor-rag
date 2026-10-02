@@ -109,3 +109,42 @@ class TestCheckpoint:
         ckpt.add({"id": "q1"})
         ckpt.done()
         assert not path.exists()
+
+
+def test_failed_generations_are_excluded_and_counted():
+    ok = record(hit=True)
+    failed = {**record(), "error": "HTTPError: HTTP Error 500"}
+    agg = answer_eval.aggregate([ok, failed])
+    # Упавшая генерация — не «ответил без попадания», а «не измерено».
+    assert agg["answer_rate"] == 1.0
+    assert agg["citation_hit"] == 1.0
+    assert agg["n_failed"] == 1
+
+
+def test_agreement_without_judged_pairs_explains_itself(tmp_path, monkeypatch, capsys):
+    import json
+
+    path = tmp_path / "labels.jsonl"
+    row = {
+        "id": "a",
+        "question": "q",
+        "reference": "r",
+        "context": "c",
+        "answer": "a",
+        "label_correctness": "correct",
+        "label_groundedness": "grounded",
+        "judge": {"correctness": None, "groundedness": None, "error": "Connection error"},
+    }
+    path.write_text(json.dumps(row) + "\n", "utf-8")
+    monkeypatch.setattr(answer_eval, "LABELS", path)
+    assert answer_eval.agreement_table([row], "gpt-5") is None
+
+
+def test_retry_picks_failed_generations_and_missing_verdicts():
+    good = {**record(judge={"correctness": "correct", "groundedness": "grounded"}), "id": "a"}
+    failed = {**record(), "id": "b", "error": "HTTP 500"}
+    unjudged = {**record(judge={"correctness": None, "error": "Connection error"}), "id": "c"}
+    no_judge = {**record(), "id": "d"}
+    records = [good, failed, unjudged, no_judge]
+    assert answer_eval.needs_retry(records, judge_on=True) == ["b", "c", "d"]
+    assert answer_eval.needs_retry(records, judge_on=False) == ["b"]
