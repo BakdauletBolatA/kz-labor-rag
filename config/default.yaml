@@ -141,12 +141,16 @@ judge:
 generation_alternatives:
   deepseek:
     provider: cloud
-    model: deepseek-chat
+    model: deepseek-v4-pro
+    # Модель рассуждает перед ответом: 512 токенов обрезали бы длинные ответы.
+    max_tokens: 4096
     base_url: https://api.deepseek.com
     api_key_env: DEEPSEEK_API_KEY
   grok:
     provider: cloud
     model: grok-4
+    # Модель рассуждает перед ответом: 512 токенов обрезали бы длинные ответы.
+    max_tokens: 4096
     base_url: https://api.x.ai/v1
     api_key_env: XAI_API_KEY
 
