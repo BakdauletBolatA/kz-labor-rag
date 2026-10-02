@@ -160,6 +160,17 @@ class TestByArticle:
         assert store.by_article("999") == []
 
 
+class TestAllChunks:
+    def test_returns_every_chunk_in_id_order(self, store):
+        store.upsert(
+            [chunk("c2", ("53",), ()), chunk("c1", ("52",), (("52", "1"),))],
+            vectors([1, 0], [0, 1]),
+        )
+        chunks = store.all_chunks()
+        assert [c.chunk_id for c in chunks] == ["c1", "c2"]
+        assert chunks[0].spans == (("52", "1"),)
+
+
 class TestMeta:
     def test_roundtrip(self, store):
         store.write_meta({"version": "baseline-v0", "chunking_signature": "abc"})

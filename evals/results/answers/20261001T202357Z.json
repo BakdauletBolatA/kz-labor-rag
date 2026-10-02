@@ -1,0 +1,314 @@
+{
+  "cell": "clause+header/e5-base/hybrid",
+  "config": {
+    "version": "clause+header/e5-base/hybrid",
+    "description": "Конфиг сервиса: нарезка по пунктам с заголовком статьи, гибридный поиск (e5 + BM25 через RRF), без реранкинга — он стоит секунды на CPU. Наивный baseline для сравнений — config/baseline.yaml.",
+    "corpus": {
+      "raw_html": "data/raw/adilet_K1500000414_rus.html",
+      "checksum_file": "data/raw/CHECKSUM",
+      "strip_amendment_notes": true
+    },
+    "chunking": {
+      "strategy": "clause",
+      "chunk_size_tokens": 512,
+      "chunk_overlap_tokens": 0,
+      "tokenizer": "intfloat/multilingual-e5-base",
+      "prepend_article_header": true
+    },
+    "embeddings": {
+      "provider": "huggingface",
+      "model": "intfloat/multilingual-e5-base",
+      "dimensions": 768,
+      "query_prefix": "query: ",
+      "passage_prefix": "passage: ",
+      "normalize": true,
+      "max_sequence_length": 512,
+      "batch_size": 32,
+      "device": "cpu",
+      "cache": {
+        "enabled": true,
+        "dir": ".cache/embeddings"
+      }
+    },
+    "vector_store": {
+      "backend": "pgvector",
+      "table": "exp_clause_header_e5_base",
+      "dsn": "postgresql://kzrag:kzrag@localhost:5433/kzrag",
+      "distance": "cosine",
+      "index": "none"
+    },
+    "retrieval": {
+      "implementation": "hybrid",
+      "top_k": 5,
+      "candidate_k": 5,
+      "bm25": {
+        "analyzer": "lemma",
+        "k1": 1.2,
+        "b": 0.75
+      },
+      "hybrid": {
+        "candidate_k": 30,
+        "rrf_k": 60
+      },
+      "reranker": {
+        "enabled": false,
+        "model": "BAAI/bge-reranker-v2-m3",
+        "candidate_k": 20,
+        "max_length": 1024,
+        "batch_size": 8,
+        "device": "cpu"
+      },
+      "query_expansion": {
+        "enabled": false
+      }
+    },
+    "generation": {
+      "enabled": true,
+      "provider": "ollama",
+      "model": "qwen2.5:7b-instruct",
+      "base_url": "http://localhost:11436",
+      "prompt_id": "answer_ru",
+      "prompt_version": "v2",
+      "max_tokens": 512,
+      "temperature": 0.0,
+      "num_ctx": 4096
+    },
+    "judge": {
+      "enabled": false,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "prompt_id": "faithfulness_ru",
+      "prompt_version": "v1",
+      "max_tokens": 1024,
+      "temperature": 0.0
+    },
+    "answer_judge": {
+      "provider": "openai",
+      "openai_model": "gpt-5",
+      "anthropic_model": "claude-opus-5-5",
+      "prompt_id": "answer_judge_ru",
+      "prompt_version": "v1",
+      "effort": "medium"
+    },
+    "eval": {
+      "dataset": "evals/questions.jsonl",
+      "results_dir": "evals/results",
+      "k": 5,
+      "languages": [
+        "ru"
+      ],
+      "primary_language": "ru",
+      "repeats": 1,
+      "seed": 20260811
+    }
+  },
+  "generator": {
+    "backend": "ollama",
+    "model": "qwen2.5:7b-instruct",
+    "prompt": "answer_ru@v2",
+    "prompt_sha256": "772ac210f2b2a8f7f1711bad1c1f3b2d703d60de04c032caf3c256fef8c951af",
+    "temperature": "0.0"
+  },
+  "judge": {
+    "skipped": "OPENAI_API_KEY не задан — судья не запускался, его метрики не измерены"
+  },
+  "dataset_sha256": "a7f3fea265a604132bb74309e81ae5543fa61907eefe3c6160e8ddd380c5650b",
+  "aggregates": {
+    "n_answerable": 3,
+    "n_unanswerable": 0,
+    "answer_rate": 1.0,
+    "citation_hit": 0.6666666666666666,
+    "citation_validity": 1.0,
+    "withheld": 0.0,
+    "correct_refusal": null,
+    "n_judged": 0,
+    "correctness": null,
+    "groundedness": null,
+    "generation_p50_ms": 130260.81850001356
+  },
+  "questions": [
+    {
+      "id": "new_001",
+      "type": "multi",
+      "origin": "synthetic",
+      "question": "Меня сокращают. За сколько должны предупредить и что заплатят при увольнении?",
+      "unanswerable": false,
+      "required_clauses": [
+        "ст. 53 п. 1",
+        "ст. 131 п. 1"
+      ],
+      "retrieved": [
+        {
+          "chunk_id": "p172/1#00000",
+          "clauses": [
+            "ст. 172 п. 1"
+          ]
+        },
+        {
+          "chunk_id": "p113/4#00000",
+          "clauses": [
+            "ст. 113 п. 4"
+          ]
+        },
+        {
+          "chunk_id": "p113/2#00000",
+          "clauses": [
+            "ст. 113 п. 2"
+          ]
+        },
+        {
+          "chunk_id": "p166/5-1#00000",
+          "clauses": [
+            "ст. 166 п. 5-1"
+          ]
+        },
+        {
+          "chunk_id": "p93/2#00000",
+          "clauses": [
+            "ст. 93 п. 2"
+          ]
+        }
+      ],
+      "answer": "При сокращении работника работодатель должен предупредить его не позднее чем за два месяца до фактического прекращения трудового договора. При прекращении трудового договора выплата сумм, причитающихся работнику, производится не позднее трех рабочих дней после его прекращения, и работодатель выплачивает работнику задолженность и пеню за период задержки платежа.\n\nИсточники: ст. 172 п. 1; ст. 113 п. 4",
+      "raw": "При сокращении работника работодатель должен предупредить его не позднее чем за два месяца до фактического прекращения трудового договора. При прекращении трудового договора выплата сумм, причитающихся работнику, производится не позднее трех рабочих дней после его прекращения, и работодатель выплачивает работнику задолженность и пеню за период задержки платежа.\n\nИсточники: ст. 172 п. 1; ст. 113 п. 4",
+      "citations": [
+        "ст. 172 п. 1",
+        "ст. 113 п. 4"
+      ],
+      "invalid_citations": [],
+      "citation_hit": false,
+      "refused": false,
+      "withheld": false,
+      "error": null,
+      "tokens": {
+        "input": 1211,
+        "output": 133
+      },
+      "latency_ms": {
+        "retrieval": 104.2495000292547,
+        "generation": 153707.41108298535
+      }
+    },
+    {
+      "id": "new_002",
+      "type": "number",
+      "origin": "synthetic",
+      "question": "Сколько дней подряд может длиться вахта?",
+      "unanswerable": false,
+      "required_clauses": [
+        "ст. 135 п. 4"
+      ],
+      "retrieved": [
+        {
+          "chunk_id": "p135/4#00000",
+          "clauses": [
+            "ст. 135 п. 4"
+          ]
+        },
+        {
+          "chunk_id": "p84/4#00000",
+          "clauses": [
+            "ст. 84 п. 4"
+          ]
+        },
+        {
+          "chunk_id": "p84/5#00000",
+          "clauses": [
+            "ст. 84 п. 5"
+          ]
+        },
+        {
+          "chunk_id": "p135/6#00000",
+          "clauses": [
+            "ст. 135 п. 6"
+          ]
+        },
+        {
+          "chunk_id": "p85/1#00000",
+          "clauses": [
+            "ст. 85 п. 1"
+          ]
+        }
+      ],
+      "answer": "Вахта может длиться до тридцати календарных дней с письменного согласия работника, и до ста двадцати календарных дней для членов экипажей морских судов с их согласия. В исключительных случаях, указанных в статье 135 п. 4, продолжительность вахты может быть увеличена.\n\nИсточники: ст. 135 п. 4; ст. 135 п. 6",
+      "raw": "Вахта может длиться до тридцати календарных дней с письменного согласия работника, и до ста двадцати календарных дней для членов экипажей морских судов с их согласия. В исключительных случаях, указанных в статье 135 п. 4, продолжительность вахты может быть увеличена.\n\nИсточники: ст. 135 п. 4; ст. 135 п. 6",
+      "citations": [
+        "ст. 135 п. 4",
+        "ст. 135 п. 6"
+      ],
+      "invalid_citations": [],
+      "citation_hit": true,
+      "refused": false,
+      "withheld": false,
+      "error": null,
+      "tokens": {
+        "input": 1420,
+        "output": 124
+      },
+      "latency_ms": {
+        "retrieval": 1068.9090419909917,
+        "generation": 130260.81850001356
+      }
+    },
+    {
+      "id": "syn_001",
+      "type": "condition",
+      "origin": "synthetic",
+      "question": "Меня хотят уволить, а я сейчас на больничном. Так вообще можно?",
+      "unanswerable": false,
+      "required_clauses": [
+        "ст. 54 п. 1"
+      ],
+      "retrieved": [
+        {
+          "chunk_id": "p54/1#00000",
+          "clauses": [
+            "ст. 54 п. 1"
+          ]
+        },
+        {
+          "chunk_id": "p137/2#00000",
+          "clauses": [
+            "ст. 137 п. 2"
+          ]
+        },
+        {
+          "chunk_id": "p48/4#00000",
+          "clauses": [
+            "ст. 48 п. 4"
+          ]
+        },
+        {
+          "chunk_id": "p156/3#00000",
+          "clauses": [
+            "ст. 156 п. 3"
+          ]
+        },
+        {
+          "chunk_id": "p53/8#00000",
+          "clauses": [
+            "ст. 53 п. 8"
+          ]
+        }
+      ],
+      "answer": "Не допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности работника.\n\nИсточники: ст. 54 п. 1",
+      "raw": "Не допускается расторжение трудового договора по инициативе работодателя в период временной нетрудоспособности работника.\n\nИсточники: ст. 54 п. 1",
+      "citations": [
+        "ст. 54 п. 1"
+      ],
+      "invalid_citations": [],
+      "citation_hit": true,
+      "refused": false,
+      "withheld": false,
+      "error": null,
+      "tokens": {
+        "input": 892,
+        "output": 52
+      },
+      "latency_ms": {
+        "retrieval": 119.35058300150558,
+        "generation": 52560.505917004775
+      }
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+# Единственное место, где живут параметры чанкинга, поиска и eval.
+# В коде значений по умолчанию нет — код читает этот файл.
+#
+# Итерация из пункта 5 плана = ровно одно изменённое значение здесь
+# (или один новый компонент), новая метка version, прогон eval, коммит.
+
+# Метка версии пайплайна. Попадает в имя файла результата, в JSON и
+# в строку таблицы EVALUATION.md. Меняется на КАЖДОЙ итерации.
+version: baseline-v0
+
+# Человекочитаемое описание того, что эта версия меняет относительно
+# предыдущей. Одно изменение — одно предложение. Если тут хочется написать
+# «и ещё», значит итерация нарушает правило «одно изменение за раз».
+description: >-
+  Намеренно наивный baseline: чанки фиксированной длины без учёта структуры
+  документа, плотный поиск по косинусному сходству, без reranking.
+
+corpus:
+  raw_html: data/raw/adilet_K1500000414_rus.html
+  checksum_file: data/raw/CHECKSUM
+  # Отсекать примечания об изменениях («Законом РК от ...») из тела статей.
+  # Значение обязано быть одинаковым во всех итерациях, иначе цифры
+  # несравнимы. Меняется только как отдельная явная итерация.
+  strip_amendment_notes: true
+
+chunking:
+  # baseline: режем по токенам, структуру документа игнорируем.
+  # Варианты для будущих итераций: article, clause, article_with_parent_header
+  strategy: fixed_tokens
+  # Полный бюджет кодирования, а НЕ только содержимое: чанкер сам вычитает
+  # префикс «passage: » и служебные токены, чтобы модель получила ровно 512.
+  # Если считать 512 содержимым, реальная длина выходит 516-517 при пределе
+  # 512, и хвост каждого чанка молча отбрасывается при кодировании.
+  chunk_size_tokens: 512
+  chunk_overlap_tokens: 0
+  # Токенизатор для подсчёта длины чанка. Должен совпадать с моделью
+  # эмбеддингов, иначе «512 токенов» — не те 512 токенов.
+  tokenizer: intfloat/multilingual-e5-base
+  # Приклеивать ли заголовок статьи к каждому чанку. В baseline — нет:
+  # это одна из первых напрашивающихся гипотез, и она должна быть измерена
+  # отдельной итерацией, а не подарена baseline'у бесплатно.
+  prepend_article_header: false
+
+embeddings:
+  provider: huggingface        # huggingface | openai
+  model: intfloat/multilingual-e5-base
+  dimensions: 768
+  # e5 обучена на асимметричных префиксах. Перепутать их или забыть —
+  # тихая деградация качества без единой ошибки в логах.
+  query_prefix: "query: "
+  passage_prefix: "passage: "
+  normalize: true
+  # Предел длины входа модели. Сравнивается с длиной чанка ПЛЮС префикс и
+  # служебные токены: при chunk_size_tokens=512 хвост полного чанка модель
+  # отбрасывает молча, и об этом должно быть предупреждение при индексации.
+  max_sequence_length: 512
+  batch_size: 32
+  device: cpu
+  cache:
+    enabled: true
+    dir: .cache/embeddings
+    # Ключ кэша задаётся кодом и покрывает всё, от чего зависит вектор:
+    # версия формата ключа, модель, passage_prefix, флаг normalize,
+    # подпись чанкинга и текст. Списком в конфиге он был раньше, но код его
+    # не читал — настройка, которая ничего не настраивает, опаснее её
+    # отсутствия. Смена чанкинга или префикса инвалидирует кэш автоматически;
+    # смена модели пишет в соседний файл и не затирает старое.
+
+vector_store:
+  backend: pgvector
+  table: chunks
+  # DSN берётся из KZRAG_DATABASE_URL, если переменная задана: в Docker и
+  # локально адрес базы разный, а всё остальное обязано совпадать.
+  dsn: null
+  # cosine | l2 | inner_product
+  distance: cosine
+  # baseline без ANN-индекса: на ~2-3 тыс. чанков точный перебор быстрее и
+  # честнее. ivfflat/hnsw — отдельная итерация про скорость, не про качество.
+  index: none
+
+retrieval:
+  # dense — косинусная близость e5; bm25 — лексический поиск с русской
+  # морфологией; hybrid — оба, слитые через reciprocal rank fusion.
+  implementation: dense
+  top_k: 5
+  # Сколько кандидатов dense достаёт из базы. Без реранкинга равно top_k.
+  candidate_k: 5
+  bm25:
+    # lemma — pymorphy3 (словарная форма), stem — Snowball (обрезка окончаний).
+    analyzer: lemma
+    k1: 1.2
+    b: 0.75
+  hybrid:
+    # Сколько кандидатов каждый поиск отдаёт на слияние.
+    candidate_k: 30
+    # Константа RRF: 1 / (rrf_k + rank). 60 — значение из исходной статьи.
+    rrf_k: 60
+  reranker:
+    enabled: false
+    model: BAAI/bge-reranker-v2-m3
+    # Сколько кандидатов базового поиска переранжируется.
+    candidate_k: 20
+    # Пара «вопрос + чанк» в токенах. Чанк — до 512 токенов, вопрос короткий;
+    # 512 обрезали бы хвост чанка молча.
+    max_length: 1024
+    batch_size: 8
+    device: cpu
+  query_expansion:
+    enabled: false
+
+generation:
+  enabled: true
+  # ollama — локальная модель, ключ не нужен; anthropic — по ANTHROPIC_API_KEY.
+  provider: ollama
+  model: qwen2.5:7b-instruct
+  # Переопределяется KZRAG_OLLAMA_URL: в Docker это http://ollama:11434.
+  base_url: http://localhost:11436
+  prompt_id: answer_ru
+  prompt_version: v2
+  max_tokens: 512
+  temperature: 0.0
+  # Окно контекста модели: промпт плюс пять фрагментов по 512 токенов e5.
+  num_ctx: 4096
+
+judge:
+  enabled: true
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  prompt_id: faithfulness_ru
+  prompt_version: v1
+  max_tokens: 1024
+  temperature: 0.0
+
+# Судья ответов в evals/answer_eval.py: правильность по эталонным пунктам и
+# обоснованность по показанным фрагментам. Другой вендор, чем генератор, и
+# заметно сильнее его. provider: openai (OPENAI_API_KEY) | anthropic
+# (ANTHROPIC_API_KEY; при отказе модели запрос уходит на запасную модель API).
+answer_judge:
+  provider: openai
+  openai_model: gpt-5
+  anthropic_model: claude-opus-5-5
+  prompt_id: answer_judge_ru
+  prompt_version: v1
+  effort: medium
+
+eval:
+  dataset: evals/questions.jsonl
+  results_dir: evals/results
+  # k, на котором считаются recall@k, MRR и article_recall@k.
+  # Меняется только вместе с бампом metrics_version.
+  k: 5
+  # Казахский срез заморожен в архивном evals/datasets/kz_labor_v1.jsonl.
+  languages: [ru]
+  # Основной срез, по которому идут главные цифры в EVALUATION.md.
+  primary_language: ru
+  # Метрики считаются только по вопросам с отметкой ревью человеком;
+  # число посчитанных вопросов пишется в каждый результат.
+
+  # Число повторов прогона генератора и судьи. LLM-часть шумит,
+  # и одиночный прогон выдаёт разброс за улучшение.
+  repeats: 1
+  seed: 20260811

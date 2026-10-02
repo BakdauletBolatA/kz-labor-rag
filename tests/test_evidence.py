@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from kz_labor_rag.corpus.evidence import extract_evidence
+from kz_labor_rag.corpus.evidence import clauses_of_quote, extract_evidence
 
 
 class TestVerbatim:
@@ -85,3 +85,52 @@ class TestLongEnumerations:
         quote = extract_evidence(text, "Основания:", max_len=100)
         assert quote in text
         assert not quote.endswith(" ")
+
+
+class TestClausesOfQuote:
+    """Пункт эталона выводится из цитаты, а не пишется руками.
+
+    Цитата уже прошла ревью человеком; пункт, в котором она лежит, — механическое
+    следствие, и перенабор номера руками дал бы второй источник ошибок.
+    """
+
+    CLAUSES = (
+        ("1", "Работник вправе расторгнуть договор, уведомив за один месяц."),
+        ("2", "Работодатель обязан произвести расчёт в день увольнения."),
+        ("3", "Перечень оснований:"),
+        ("4", "1) ликвидация; 2) сокращение."),
+    )
+
+    def test_quote_inside_one_clause(self):
+        assert clauses_of_quote(self.CLAUSES, "произвести расчёт в день увольнения") == ["2"]
+
+    def test_quote_spanning_two_clauses(self):
+        # extract_evidence режет по точке, а пункт с двоеточием точки не имеет:
+        # цитата законно перетекает в следующий пункт и доказывает оба.
+        assert clauses_of_quote(self.CLAUSES, "Перечень оснований:\n1) ликвидация") == ["3", "4"]
+
+    def test_whitespace_differences_are_ignored(self):
+        assert clauses_of_quote(self.CLAUSES, "уведомив  за\nодин месяц") == ["1"]
+
+    def test_quote_not_in_any_clause_raises(self):
+        with pytest.raises(ValueError, match="не найдена"):
+            clauses_of_quote(self.CLAUSES, "такого текста в статье нет")
+
+
+class TestTruncationStaysInsideTheClause:
+    """Обрезка длинной цитаты не должна перетекать в следующий пункт.
+
+    syn_043: пункт 2 ст. 51 длиннее 600 символов, обрезка от якоря захватывала
+    перевод строки и обрывок пункта 3 — «Датой истечения срока трудового
+    договора, заключенного на». Цитата при этом «доказывала» пункт, к вопросу
+    не относящийся.
+    """
+
+    def test_truncated_quote_does_not_cross_a_line_break(self):
+        # Как в syn_043: длинное предложение без точки внутри, якорь ближе к
+        # концу пункта, чем max_len, — окно от якоря дотягивается до соседа.
+        clause = "Вступление " + "длинная норма " * 50 + "якорь нормы " + "хвост " * 20 + "конец."
+        text = clause + "\nДатой истечения срока трудового договора является день."
+        quote = extract_evidence(text, "якорь нормы", max_len=600)
+        assert "\n" not in quote
+        assert "Датой истечения" not in quote

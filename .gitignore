@@ -41,3 +41,6 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+
+# незавершённый прогон evals/answer_eval.py
+evals/results/answers/partial.jsonl

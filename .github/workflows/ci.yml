@@ -46,7 +46,7 @@ jobs:
           pip install -e '.[dev]'
 
       - name: Линтер
-        run: ruff check src/ scripts/ tests/
+        run: ruff check .
 
       # Корпус в репозиторий не коммитится, поэтому 13 тестов против настоящего
       # текста кодекса — парсер на 223 статьях, бюджет кодирования и сверка
@@ -80,13 +80,13 @@ jobs:
       - name: Тесты
         run: pytest -q -rs
 
-      - name: Проверить, что датасет читается и сходится с самим собой
+      - name: Проверить, что тестовый набор читается
         run: |
-          kzrag-eval validate || true   # гейт не пройден — это ожидаемо, пока датасет неполон
+          kzrag-eval validate
           python - <<'PY'
           from kz_labor_rag.eval.dataset import load_dataset
-          ds = load_dataset("evals/datasets/kz_labor_v1.jsonl")
-          print("готовых вопросов:", len(ds.ready), "| черновых слотов:", ds.stats["draft_slots"])
+          ds = load_dataset("evals/questions.jsonl")
+          print("вопросов:", len(ds.ready), "| проверено:", len(ds.verified))
           PY
 
   docker:

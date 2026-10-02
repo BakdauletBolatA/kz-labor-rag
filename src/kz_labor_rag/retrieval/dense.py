@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Sequence
 
 from kz_labor_rag.embeddings.encoder import Encoder
@@ -38,6 +39,7 @@ class DenseRetriever:
         # latency_ms.retrieval — в число, которое потом сравнивают между
         # итерациями. Проверяем один раз: пустой индекс всё равно роняет прогон.
         self._index_verified = False
+        self.last_timings: dict[str, float] = {}
 
     @property
     def version(self) -> str:
@@ -73,7 +75,12 @@ class DenseRetriever:
             )
         }
 
-    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
+    def warmup(self) -> None:
+        """Загрузить модель и проверить индекс до того, как пойдут замеры."""
+        self._verify_index()
+        self.encoder.encode_query("прогрев")
+
+    def _verify_index(self) -> None:
         if not self._index_verified:
             if self.store.count() == 0:
                 raise StoreError(
@@ -81,7 +88,12 @@ class DenseRetriever:
                     "(в Docker это делает точка входа при первом запуске)"
                 )
             self._index_verified = True
+
+    def search(self, query: str, k: int) -> Sequence[RetrievedChunk]:
+        self._verify_index()
+        t0 = time.perf_counter()
         vector = self.encoder.encode_query(query)
         limit = max(k, self.candidate_k or k)
         hits = self.store.search(vector, limit)
+        self.last_timings = {"dense": (time.perf_counter() - t0) * 1000}
         return hits[:k]

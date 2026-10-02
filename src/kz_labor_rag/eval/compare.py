@@ -41,8 +41,7 @@ METRIC_ORDER: tuple[str, ...] = (
     "recall@",
     "strict_hit@",
     "mrr",
-    "clause_hit@",
-    "clause_precision@",
+    "article_recall@",
     "citation_validity",
     "faithfulness",
 )

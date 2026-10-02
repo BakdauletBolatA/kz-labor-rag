@@ -6,14 +6,16 @@
 
 # Метка версии пайплайна. Попадает в имя файла результата, в JSON и
 # в строку таблицы EVALUATION.md. Меняется на КАЖДОЙ итерации.
-version: baseline-v0
+version: service-v2
 
 # Человекочитаемое описание того, что эта версия меняет относительно
 # предыдущей. Одно изменение — одно предложение. Если тут хочется написать
 # «и ещё», значит итерация нарушает правило «одно изменение за раз».
 description: >-
-  Намеренно наивный baseline: чанки фиксированной длины без учёта структуры
-  документа, плотный поиск по косинусному сходству, без reranking.
+  Конфиг сервиса: нарезка по пунктам с заголовком статьи, гибридный поиск
+  (e5 + BM25 через RRF) и реранкинг кросс-энкодером — лучший recall@5 в
+  evals/results/retrieval_table.md; его ~3 с на CPU малы рядом с генерацией.
+  Наивный baseline для сравнений — config/baseline.yaml.
 
 corpus:
   raw_html: data/raw/adilet_K1500000414_rus.html
@@ -24,9 +26,10 @@ corpus:
   strip_amendment_notes: true
 
 chunking:
-  # baseline: режем по токенам, структуру документа игнорируем.
-  # Варианты для будущих итераций: article, clause, article_with_parent_header
-  strategy: fixed_tokens
+  # fixed_tokens — окна по всему потоку; clause — один чанк на пункт;
+  # article — один чанк на статью. Длинный пункт или статья режется окнами
+  # внутри своих границ.
+  strategy: clause
   # Полный бюджет кодирования, а НЕ только содержимое: чанкер сам вычитает
   # префикс «passage: » и служебные токены, чтобы модель получила ровно 512.
   # Если считать 512 содержимым, реальная длина выходит 516-517 при пределе
@@ -36,10 +39,9 @@ chunking:
   # Токенизатор для подсчёта длины чанка. Должен совпадать с моделью
   # эмбеддингов, иначе «512 токенов» — не те 512 токенов.
   tokenizer: intfloat/multilingual-e5-base
-  # Приклеивать ли заголовок статьи к каждому чанку. В baseline — нет:
-  # это одна из первых напрашивающихся гипотез, и она должна быть измерена
-  # отдельной итерацией, а не подарена baseline'у бесплатно.
-  prepend_article_header: false
+  # Заголовок статьи («Статья 135. Вахтовый метод работы») в начале каждого
+  # чанка: без него пункт «не может превышать пятнадцать дней» теряет предмет.
+  prepend_article_header: true
 
 embeddings:
   provider: huggingface        # huggingface | openai
@@ -68,7 +70,9 @@ embeddings:
 
 vector_store:
   backend: pgvector
-  table: chunks
+  # Своя таблица у сервиса и у baseline (config/baseline.yaml → chunks):
+  # переключение конфига не должно пересобирать чужой индекс.
+  table: chunks_service
   # DSN берётся из KZRAG_DATABASE_URL, если переменная задана: в Docker и
   # локально адрес базы разный, а всё остальное обязано совпадать.
   dsn: null
@@ -79,30 +83,48 @@ vector_store:
   index: none
 
 retrieval:
-  # dense — плотный поиск по косинусному сходству, реализация baseline.
-  implementation: dense
+  # dense — косинусная близость e5; bm25 — лексический поиск с русской
+  # морфологией; hybrid — оба, слитые через reciprocal rank fusion.
+  implementation: hybrid
   top_k: 5
-  # Сколько кандидатов достаётся до reranking. В baseline reranking нет,
-  # поэтому равно top_k.
+  # Сколько кандидатов dense достаёт из базы. Без реранкинга равно top_k.
   candidate_k: 5
+  bm25:
+    # lemma — pymorphy3 (словарная форма), stem — Snowball (обрезка окончаний).
+    analyzer: lemma
+    k1: 1.2
+    b: 0.75
   hybrid:
-    enabled: false
-    bm25_weight: 0.0
-    dense_weight: 1.0
+    # Сколько кандидатов каждый поиск отдаёт на слияние.
+    candidate_k: 30
+    # Константа RRF: 1 / (rrf_k + rank). 60 — значение из исходной статьи.
+    rrf_k: 60
   reranker:
-    enabled: false
-    model: null
+    enabled: true
+    model: BAAI/bge-reranker-v2-m3
+    # Сколько кандидатов базового поиска переранжируется.
+    candidate_k: 20
+    # Пара «вопрос + чанк» в токенах. Чанк — до 512 токенов, вопрос короткий;
+    # 512 обрезали бы хвост чанка молча.
+    max_length: 1024
+    batch_size: 8
+    device: cpu
   query_expansion:
     enabled: false
 
 generation:
   enabled: true
-  provider: anthropic
-  model: claude-sonnet-5
+  # ollama — локальная модель, ключ не нужен; anthropic — по ANTHROPIC_API_KEY.
+  provider: ollama
+  model: qwen2.5:7b-instruct
+  # Переопределяется KZRAG_OLLAMA_URL: в Docker это http://ollama:11434.
+  base_url: http://localhost:11436
   prompt_id: answer_ru
-  prompt_version: v1
-  max_tokens: 1024
+  prompt_version: v2
+  max_tokens: 512
   temperature: 0.0
+  # Окно контекста модели: промпт плюс пять фрагментов по 512 токенов e5.
+  num_ctx: 4096
 
 judge:
   enabled: true
@@ -113,22 +135,31 @@ judge:
   max_tokens: 1024
   temperature: 0.0
 
+# Судья ответов в evals/answer_eval.py: правильность по эталонным пунктам и
+# обоснованность по показанным фрагментам. Другой вендор, чем генератор, и
+# заметно сильнее его. provider: openai (OPENAI_API_KEY) | anthropic
+# (ANTHROPIC_API_KEY; при отказе модели запрос уходит на запасную модель API).
+answer_judge:
+  provider: openai
+  openai_model: gpt-5
+  anthropic_model: claude-opus-5-5
+  prompt_id: answer_judge_ru
+  prompt_version: v1
+  effort: medium
+
 eval:
-  dataset: evals/datasets/kz_labor_v1.jsonl
+  dataset: evals/questions.jsonl
   results_dir: evals/results
-  # k, на котором считаются recall@k и clause-метрики.
+  # k, на котором считаются recall@k, MRR и article_recall@k.
   # Меняется только вместе с бампом metrics_version.
   k: 5
-  languages: [ru, kk]
+  # Казахский срез заморожен в архивном evals/datasets/kz_labor_v1.jsonl.
+  languages: [ru]
   # Основной срез, по которому идут главные цифры в EVALUATION.md.
   primary_language: ru
-  # Гейт: baseline не запускается на неукомплектованном датасете.
-  completeness:
-    enforce: true
-    min_ru: 60
-    min_kk: 15
-    min_real: 15
-    require_human_review: true
+  # Метрики считаются только по вопросам с отметкой ревью человеком;
+  # число посчитанных вопросов пишется в каждый результат.
+
   # Число повторов прогона генератора и судьи. LLM-часть шумит,
   # и одиночный прогон выдаёт разброс за улучшение.
   repeats: 1

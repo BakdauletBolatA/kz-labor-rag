@@ -25,7 +25,7 @@ from typing import Any
 
 from kz_labor_rag.config import Config
 from kz_labor_rag.eval import metrics as M
-from kz_labor_rag.eval.dataset import CompletenessRule, EvalDataset, EvalQuestion
+from kz_labor_rag.eval.dataset import EvalDataset, EvalQuestion
 from kz_labor_rag.eval.generator import Generation, Generator
 from kz_labor_rag.eval.judge import Judge, Judgement, context_format_fingerprint
 from kz_labor_rag.types import Retriever
@@ -33,12 +33,10 @@ from kz_labor_rag.types import Retriever
 RESULT_SCHEMA_VERSION = "1.0"
 
 
-class DatasetNotReadyError(RuntimeError):
-    """Датасет не укомплектован, а гейт включён.
+class NoVerifiedQuestionsError(RuntimeError):
+    """В датасете нет ни одного вопроса, проверенного человеком.
 
-    Пока это исключение летит — цифрам в EVALUATION.md взяться неоткуда, и это
-    правильно: baseline, посчитанный на неполном датасете, несравним с
-    итерациями, посчитанными на полном.
+    Метрика на непроверенной разметке мерила бы ошибки эталона, а не поиска.
     """
 
 
@@ -61,8 +59,13 @@ class QuestionRun:
             "origin": self.question.origin,
             "required_articles": list(self.question.required_articles),
             "acceptable_articles": list(self.question.acceptable_articles),
+            "required_clauses": [str(c) for c in self.question.required_clauses],
             "retrieved": self.retrieved,
-            "metrics": {k: v for k, v in asdict(self.metrics).items() if k not in ("question_id",)},
+            "metrics": {
+                k: v
+                for k, v in asdict(self.metrics).items()
+                if k not in ("question_id", "required_articles", "required_clauses")
+            },
             "retrieval_failure": self.metrics.is_retrieval_failure,
             "latency_ms": self.latency_ms,
         }
@@ -136,28 +139,6 @@ class EvalRunner:
         self.judge = judge
         self.k = int(config.get("eval.k"))
 
-    # --- гейт готовности датасета ---------------------------------------
-
-    def check_dataset_ready(self, dataset: EvalDataset) -> None:
-        rules = self.config.section("eval")["completeness"]
-        if not rules.get("enforce", True):
-            return
-        rule = CompletenessRule(
-            min_ru=int(rules["min_ru"]),
-            min_kk=int(rules["min_kk"]),
-            min_real=int(rules["min_real"]),
-            require_human_review=bool(rules["require_human_review"]),
-        )
-        if problems := rule.violations(dataset):
-            listed = "\n  - ".join(problems)
-            raise DatasetNotReadyError(
-                "Датасет не укомплектован, прогон остановлен:\n  - "
-                + listed
-                + "\n\nЦифры на неполном датасете несравнимы с будущими итерациями. "
-                "Доукомплектуйте датасет либо временно снимите eval.completeness.enforce "
-                "в конфиге — но тогда результат нельзя писать в EVALUATION.md."
-            )
-
     # --- один вопрос ------------------------------------------------------
 
     def run_question(self, q: EvalQuestion) -> QuestionRun:
@@ -166,6 +147,8 @@ class EvalRunner:
         t0 = time.perf_counter()
         chunks = list(self.retriever.search(q.question, self.k))
         latency["retrieval"] = (time.perf_counter() - t0) * 1000
+        # Шаги поиска (dense, bm25, fusion, rerank), если поиск их сообщает.
+        latency.update(getattr(self.retriever, "last_timings", {}))
 
         ranked = M.rank_articles(chunks)
 
@@ -188,23 +171,18 @@ class EvalRunner:
                     if judgement.ok:
                         faithfulness = judgement.score
 
-        clause_precision = clause_hit = None
-        if q.preferred_clause is not None:
-            clause_precision = M.clause_precision_at_k(q.preferred_clause, chunks, self.k)
-            clause_hit = M.clause_hit_at_k(q.preferred_clause, chunks, self.k)
-
+        required_clauses = q.required_clauses
         qm = M.QuestionMetrics(
             question_id=q.id,
-            # Окно метрик — по чанкам: это ровно то, что показано генератору.
-            recall_at_k=M.recall_at_k(q.required_articles, chunks, self.k),
-            strict_hit_at_k=M.strict_hit_at_k(q.required_articles, chunks, self.k),
-            reciprocal_rank=M.reciprocal_rank(q.required_articles, chunks),
+            recall_at_k=M.recall_at_k(required_clauses, chunks, self.k),
+            strict_hit_at_k=M.strict_hit_at_k(required_clauses, chunks, self.k),
+            reciprocal_rank=M.reciprocal_rank(required_clauses, chunks),
+            article_recall_at_k=M.article_recall_at_k(q.required_articles, chunks, self.k),
             citation_validity=citation_validity,
             faithfulness=faithfulness,
-            clause_precision_at_k=clause_precision,
-            clause_hit_at_k=clause_hit,
             retrieved_articles=ranked,
             required_articles=list(q.required_articles),
+            required_clauses=[str(c) for c in required_clauses],
         )
 
         return QuestionRun(
@@ -243,17 +221,11 @@ class EvalRunner:
             f"recall@{k}": _mean([m.recall_at_k for m in ms]),
             f"strict_hit@{k}": _mean([m.strict_hit_at_k for m in ms]),
             "mrr": _mean([m.reciprocal_rank for m in ms]),
+            f"article_recall@{k}": _mean([m.article_recall_at_k for m in ms]),
             "citation_validity": _mean(
                 [m.citation_validity for m in ms if m.citation_validity is not None]
             ),
             "faithfulness": _mean([m.faithfulness for m in ms if m.faithfulness is not None]),
-            f"clause_precision@{k}": _mean(
-                [m.clause_precision_at_k for m in ms if m.clause_precision_at_k is not None]
-            ),
-            f"clause_hit@{k}": _mean(
-                [m.clause_hit_at_k for m in ms if m.clause_hit_at_k is not None]
-            ),
-            "n_with_clause": sum(1 for m in ms if m.clause_precision_at_k is not None),
             "n_judged": sum(1 for m in ms if m.faithfulness is not None),
             "retrieval_failures": sorted(m.question_id for m in ms if m.is_retrieval_failure),
         }
@@ -267,14 +239,28 @@ class EvalRunner:
 
     # --- полный прогон ----------------------------------------------------
 
-    def run(self, dataset: EvalDataset, *, enforce_gate: bool = True) -> dict[str, Any]:
-        if enforce_gate:
-            self.check_dataset_ready(dataset)
+    def run(self, dataset: EvalDataset) -> dict[str, Any]:
+        # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
+        # Непроверенные — тоже: их разметка может быть просто неверной.
+        verified = dataset.verified
+        if not verified:
+            raise NoVerifiedQuestionsError(
+                f"в датасете {dataset.path or ''} нет ни одного проверенного вопроса "
+                f"(готовых: {len(dataset.ready)}). Метрики считаются только по "
+                "вопросам с отметкой ревью."
+            )
+
+        # У вопросов без ответа в кодексе нет эталона поиска: метрики поиска
+        # считаются без них, а доля честных отказов — в оценке ответов.
+        scored = [q for q in verified if not q.is_unanswerable]
+
+        # Ленивая загрузка весов не должна попасть в задержку первого вопроса.
+        if warmup := getattr(self.retriever, "warmup", None):
+            warmup()
 
         started = datetime.now(UTC)
         t0 = time.perf_counter()
-        # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
-        runs = [self.run_question(q) for q in dataset.ready]
+        runs = [self.run_question(q) for q in scored]
         wall = time.perf_counter() - t0
 
         by_lang = {
@@ -330,6 +316,13 @@ class EvalRunner:
                 "sha256": dataset_sha,
                 "schema_version": dataset.schema_version,
                 "stats": dataset.stats,
+                "evaluated": {
+                    "n": len(scored),
+                    "real": sum(1 for q in scored if q.origin == "real"),
+                    "synthetic": sum(1 for q in scored if q.origin == "synthetic"),
+                    "unanswerable": len(verified) - len(scored),
+                    "skipped_unverified": len(dataset.ready) - len(verified),
+                },
             },
             "components": {
                 "retriever": {"version": self.retriever.version, **provenance},

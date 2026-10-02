@@ -7,12 +7,15 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
-from collections.abc import Sequence
+import urllib.request
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from kz_labor_rag.eval.citations import ground
 from kz_labor_rag.eval.judge import format_context
 from kz_labor_rag.eval.prompts import Prompt, load_prompt
 from kz_labor_rag.types import RetrievedChunk, normalize_article
@@ -78,6 +81,14 @@ class Generation:
     input_tokens: int | None = None
     output_tokens: int | None = None
     error: str | None = None
+    # Пункты, на которые ответ ссылается и которые есть в показанном контексте.
+    citations: tuple[str, ...] = ()
+    # Ссылки на пункты, которых модель не видела.
+    invalid_citations: tuple[str, ...] = ()
+    refused: bool = False
+    # Модель ответила без единой верной ссылки, и ответ заменён отказом.
+    withheld: bool = False
+    raw: str = ""
 
     @property
     def ok(self) -> bool:
@@ -162,6 +173,111 @@ class AnthropicGenerator:
             input_tokens=getattr(response.usage, "input_tokens", None),
             output_tokens=getattr(response.usage, "output_tokens", None),
             **base,
+        )
+
+
+@dataclass
+class OllamaGenerator:
+    """Генератор на локальной модели через HTTP API Ollama.
+
+    Ответ проходит ``ground``: ссылки сверяются с показанными фрагментами, и
+    ответ без единой верной ссылки заменяется отказом. ``cited_articles``
+    берутся из ссылок модели до этой проверки, поэтому ``citation_validity``
+    показывает, как часто модель ссылается на то, чего не видела.
+    """
+
+    model: str
+    base_url: str
+    prompt_id: str = "answer_ru"
+    prompt_version: str = "v2"
+    max_tokens: int = 512
+    temperature: float = 0.0
+    num_ctx: int = 4096
+    seed: int = 0
+    timeout: float = 600.0
+    _prompt: Prompt = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._prompt = load_prompt(self.prompt_id, self.prompt_version)
+
+    @property
+    def descriptor(self) -> dict[str, str]:
+        return {
+            "backend": "ollama",
+            "model": self.model,
+            "prompt": self._prompt.label,
+            "prompt_sha256": self._prompt.sha256,
+            "temperature": str(self.temperature),
+        }
+
+    def _request(self, question: str, context: Sequence[RetrievedChunk], stream: bool):
+        prompt = self._prompt.text.format(question=question, context=format_context(context))
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": stream,
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.max_tokens,
+                "seed": self.seed,
+            },
+        }
+        request = urllib.request.Request(
+            f"{self.base_url.rstrip('/')}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        return urllib.request.urlopen(request, timeout=self.timeout)
+
+    def stream(self, question: str, context: Sequence[RetrievedChunk]) -> Iterator[str]:
+        """Куски ответа по мере генерации. Проверку ссылок делает вызывающий."""
+        with self._request(question, context, stream=True) as response:
+            for line in response:
+                if not line.strip():
+                    continue
+                event = json.loads(line)
+                if piece := event.get("message", {}).get("content"):
+                    yield piece
+                if event.get("done"):
+                    break
+
+    def finish(self, raw: str, context: Sequence[RetrievedChunk], **usage) -> Generation:
+        grounded = ground(raw, context)
+        return Generation(
+            answer=grounded.text,
+            cited_articles=tuple(
+                dict.fromkeys(c.article for c in (*grounded.citations, *grounded.invalid_citations))
+            ),
+            citations=tuple(str(c) for c in grounded.citations),
+            invalid_citations=tuple(str(c) for c in grounded.invalid_citations),
+            refused=grounded.refused,
+            withheld=grounded.withheld,
+            raw=raw,
+            backend="ollama",
+            model=self.model,
+            prompt_label=self._prompt.label,
+            prompt_sha256=self._prompt.sha256,
+            **usage,
+        )
+
+    def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation:
+        try:
+            with self._request(question, context, stream=False) as response:
+                body = json.loads(response.read())
+        except Exception as exc:  # noqa: BLE001 — один упавший вопрос не роняет прогон
+            return Generation(
+                answer="",
+                backend="ollama",
+                model=self.model,
+                prompt_label=self._prompt.label,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        return self.finish(
+            body.get("message", {}).get("content", "").strip(),
+            context,
+            input_tokens=body.get("prompt_eval_count"),
+            output_tokens=body.get("eval_count"),
         )
 
 

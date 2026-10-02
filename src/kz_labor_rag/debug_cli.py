@@ -20,7 +20,7 @@ import sys
 
 from kz_labor_rag.config import ConfigError, load_config
 from kz_labor_rag.eval.dataset import DatasetError, EvalQuestion, load_dataset
-from kz_labor_rag.eval.metrics import rank_articles
+from kz_labor_rag.eval.metrics import rank_articles, recall_at_k
 from kz_labor_rag.indexer import index_mismatch
 from kz_labor_rag.retrieval.factory import build_retriever, build_store
 from kz_labor_rag.retrieval.store import StoreError
@@ -75,10 +75,14 @@ def diagnose(question: EvalQuestion, hits, k: int) -> None:
         ]
         print(f"\n  Вытеснили эталон: {', '.join('ст. ' + a for a in noise) or '—'}")
 
-    if question.preferred_clause:
-        covered = any(h.covers(question.preferred_clause) for h in hits[:k])
-        flag = "покрыт" if covered else "НЕ покрыт"
-        print(f"  Точный пункт {question.preferred_clause}: {flag}")
+    print()
+    for clause in question.required_clauses:
+        rank = next((h.rank for h in hits if h.covers(clause)), None)
+        if rank is None:
+            print(f"  {_plain(RED)}{clause}: НЕ покрыт ни одним чанком выдачи{_plain(RESET)}")
+        else:
+            status = f"в топ-{k}" if rank <= k else f"ниже топ-{k}"
+            print(f"  {clause}: чанк #{rank} ({status})")
 
 
 def _retriever(args):
@@ -110,7 +114,7 @@ def cmd_search(args) -> int:
 
     if args.failures or args.question:
         dataset = load_dataset(args.dataset or config.path_of("eval.dataset"))
-        selected = [q for q in dataset.ready if not args.question or q.id == args.question]
+        selected = [q for q in dataset.answerable if not args.question or q.id == args.question]
         if args.question and not selected:
             print(f"Вопроса {args.question} нет в датасете", file=sys.stderr)
             return 1
@@ -118,7 +122,7 @@ def cmd_search(args) -> int:
         failures = 0
         for question in selected:
             hits = list(retriever.search(question.question, k))
-            found = set(rank_articles(hits)[:k]) & set(question.required_articles)
+            found = recall_at_k(question.required_clauses, hits, k)
             if args.failures and found:
                 continue
             failures += 1
@@ -130,7 +134,8 @@ def cmd_search(args) -> int:
         if args.failures:
             print(f"\n{'=' * 76}")
             print(
-                f"Вопросов без единой обязательной статьи в топ-{k}: {failures} из {len(selected)}"
+                f"Вопросов без единого обязательного пункта в топ-{k}: "
+                f"{failures} из {len(selected)}"
             )
         return 0
 

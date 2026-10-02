@@ -20,7 +20,15 @@ Origin = Literal["real", "synthetic"]
 Lang = Literal["ru", "kk"]
 Status = Literal["ready", "draft"]
 
-DATASET_SCHEMA_VERSION = "2.0"
+# fact — прямой факт; number — «сколько дней/часов», сроки и пределы;
+# condition — условия и исключения; multi — ответ из двух и более пунктов;
+# unanswerable — ответа в Трудовом кодексе нет.
+QUESTION_TYPES = ("fact", "number", "condition", "multi", "unanswerable")
+
+VERIFIERS = ("human", "model")
+HUMAN_CHECKS = ("confirmed", "rejected")
+
+DATASET_SCHEMA_VERSION = "4.1"
 
 
 class DatasetError(ValueError):
@@ -53,6 +61,20 @@ class EvalQuestion:
     Одна цитата на многосоставный вопрос молча скрывала неполноту разметки,
     поэтому схема требует цитату к КАЖДОЙ обязательной статье.
 
+    ``required_clauses`` — пункты, из которых собирается ответ. По ним считаются
+    recall@k и MRR. Это не ручная разметка поверх цитат, а их следствие: пункт,
+    в котором лежит процитированный фрагмент.
+
+    ``type`` — один из ``QUESTION_TYPES``. У вопроса типа ``unanswerable``
+    эталона поиска нет, зато в ``notes`` обязано быть сказано, где ответ на
+    самом деле (другой кодекс или закон).
+
+    ``verified`` — разметка проверена. Метрики считаются только по таким
+    вопросам. ``verified_by`` говорит, кем: ``human`` или ``model``
+    (проверка моделью с выборочным контролем человека). ``human_check`` —
+    итог такого контроля для вопроса, проверенного моделью: ``confirmed``
+    или ``rejected``.
+
     ``source_url`` заполняется только у реальных вопросов — ссылка на тред,
     откуда взята формулировка. У синтетических всегда ``None``.
 
@@ -69,17 +91,25 @@ class EvalQuestion:
     origin: Origin
     required_articles: tuple[str, ...]
     evidence: tuple[EvidenceQuote, ...]
+    type: str = ""
+    required_clauses: tuple[ClauseRef, ...] = ()
     acceptable_articles: tuple[str, ...] = ()
     preferred_clause: ClauseRef | None = None
     source_url: str | None = None
     status: Status = "ready"
-    reviewed_by_human: bool = False
+    verified: bool = False
+    verified_by: str | None = None
+    human_check: str | None = None
     notes: str = ""
     tags: tuple[str, ...] = ()
 
     @property
     def is_draft(self) -> bool:
         return self.status == "draft"
+
+    @property
+    def is_unanswerable(self) -> bool:
+        return self.type == "unanswerable"
 
     @classmethod
     def from_dict(cls, raw: dict, *, source: str = "<dict>") -> EvalQuestion:
@@ -93,10 +123,15 @@ class EvalQuestion:
         if not raw.get("id"):
             fail("обязательное поле 'id' пусто или отсутствует")
 
+        qtype = raw.get("type") or ""
+        unanswerable = qtype == "unanswerable"
         if status == "ready":
-            for key in ("question", "lang", "origin", "required_articles", "evidence"):
+            gold = () if unanswerable else ("required_articles", "evidence")
+            for key in ("question", "lang", "origin", "type", *gold):
                 if not raw.get(key):
                     fail(f"обязательное поле '{key}' пусто или отсутствует")
+            if qtype not in QUESTION_TYPES:
+                fail(f"type='{qtype}', допустимы: {', '.join(QUESTION_TYPES)}")
         elif not raw.get("lang") or not raw.get("origin"):
             fail("даже у черновика должны быть заполнены 'lang' и 'origin'")
 
@@ -122,7 +157,7 @@ class EvalQuestion:
             EvidenceQuote(article=e["article"], quote=e["quote"])
             for e in (raw.get("evidence") or ())
         )
-        if status == "ready":
+        if status == "ready" and not unanswerable:
             covered = {e.article for e in evidence}
             if missing := [a for a in required if a not in covered]:
                 fail(
@@ -136,6 +171,24 @@ class EvalQuestion:
                     "которых нет в required_articles"
                 )
 
+        required_clauses = tuple(
+            ClauseRef(article=c["article"], clause=str(c["clause"]))
+            for c in (raw.get("required_clauses") or ())
+        )
+        if status == "ready" and not unanswerable:
+            if not required_clauses:
+                fail("обязательное поле 'required_clauses' пусто или отсутствует")
+            if stray := [str(c) for c in required_clauses if c.article not in required]:
+                fail(f"пункты {stray} относятся к статьям вне required_articles")
+            with_clause = {c.article for c in required_clauses}
+            if bare := [a for a in required if a not in with_clause]:
+                fail(f"у обязательных статей {bare} нет ни одного пункта в required_clauses")
+            if (qtype == "multi") != (len(required_clauses) >= 2):
+                fail(
+                    f"type='{qtype}' при {len(required_clauses)} обязательных пунктах: "
+                    "тип 'multi' ставится ровно тогда, когда пунктов два и больше"
+                )
+
         preferred = None
         if pc := raw.get("preferred_clause"):
             preferred = ClauseRef(
@@ -146,6 +199,29 @@ class EvalQuestion:
                     f"preferred_clause указывает на статью {preferred.article}, "
                     "которой нет в required_articles"
                 )
+            if required_clauses and preferred not in required_clauses:
+                fail(f"preferred_clause {preferred} не входит в required_clauses")
+
+        if unanswerable:
+            if required or acceptable or evidence or required_clauses or preferred:
+                fail(
+                    "у вопроса типа unanswerable не бывает эталона: required_*, "
+                    "acceptable_articles, evidence и preferred_clause должны быть пусты"
+                )
+            if not str(raw.get("notes") or "").strip():
+                fail("у вопроса типа unanswerable в notes должно быть сказано, где ответ")
+
+        verified = bool(raw.get("verified", False))
+        # Отметки, поставленные до появления поля, ставил человек.
+        verified_by = (raw.get("verified_by") or "human") if verified else None
+        if verified_by not in (None, *VERIFIERS):
+            fail(f"verified_by='{verified_by}', допустимы: {', '.join(VERIFIERS)}")
+        human_check = raw.get("human_check") or None
+        if human_check is not None:
+            if human_check not in HUMAN_CHECKS:
+                fail(f"human_check='{human_check}', допустимы: {', '.join(HUMAN_CHECKS)}")
+            if verified_by == "human":
+                fail("human_check — контроль проверки моделью; вопрос проверен человеком")
 
         return cls(
             id=str(raw["id"]),
@@ -154,11 +230,15 @@ class EvalQuestion:
             origin=raw["origin"],
             required_articles=required,
             evidence=evidence,
+            type=qtype,
+            required_clauses=required_clauses,
             acceptable_articles=acceptable,
             preferred_clause=preferred,
             source_url=(raw.get("source_url") or None),
             status=status,
-            reviewed_by_human=bool(raw.get("reviewed_by_human", False)),
+            verified=verified,
+            verified_by=verified_by,
+            human_check=human_check,
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
         )
@@ -170,6 +250,7 @@ class EvalQuestion:
             "id": self.id,
             "question": self.question,
             "origin": self.origin,
+            "type": self.type,
             "source_url": self.source_url,
             "required_articles": list(self.required_articles),
             "acceptable_articles": list(self.acceptable_articles),
@@ -181,11 +262,16 @@ class EvalQuestion:
                     "clause": self.preferred_clause.clause,
                 }
             ),
+            "required_clauses": [
+                {"article": c.article, "clause": c.clause} for c in self.required_clauses
+            ],
             "tags": list(self.tags),
             "lang": self.lang,
             "evidence": [{"article": e.article, "quote": e.quote} for e in self.evidence],
             "status": self.status,
-            "reviewed_by_human": self.reviewed_by_human,
+            "verified": self.verified,
+            "verified_by": self.verified_by,
+            "human_check": self.human_check,
         }
         if self.notes:
             out["notes"] = self.notes
@@ -225,6 +311,16 @@ class EvalDataset:
         return tuple(q for q in self.questions if not q.is_draft)
 
     @property
+    def verified(self) -> tuple[EvalQuestion, ...]:
+        """Готовые вопросы, разметку которых проверил человек. Метрики — только по ним."""
+        return tuple(q for q in self.ready if q.verified)
+
+    @property
+    def answerable(self) -> tuple[EvalQuestion, ...]:
+        """Готовые вопросы, у которых есть эталон поиска."""
+        return tuple(q for q in self.ready if not q.is_unanswerable)
+
+    @property
     def stats(self) -> dict[str, int]:
         ready = self.ready
         by_lang = Counter(q.lang for q in ready)
@@ -236,41 +332,10 @@ class EvalDataset:
             "real": by_origin["real"],
             "synthetic": by_origin["synthetic"],
             "with_preferred_clause": sum(1 for q in ready if q.preferred_clause),
-            "reviewed_by_human": sum(1 for q in ready if q.reviewed_by_human),
+            "unanswerable": sum(1 for q in ready if q.is_unanswerable),
+            "verified": sum(1 for q in ready if q.verified),
             "draft_slots": len(self.questions) - len(ready),
         }
-
-
-@dataclass(frozen=True)
-class CompletenessRule:
-    """Условия, при которых датасет считается укомплектованным.
-
-    Пока правило не выполнено, baseline не запускается и в EVALUATION.md не
-    пишется ни одной цифры. Правило вынесено в конфиг, а не зашито в код,
-    но проверяется всегда.
-    """
-
-    min_ru: int = 60
-    min_kk: int = 15
-    min_real: int = 15
-    require_human_review: bool = True
-
-    def violations(self, dataset: EvalDataset) -> list[str]:
-        s = dataset.stats
-        problems: list[str] = []
-        if s["ru"] < self.min_ru:
-            problems.append(f"русских вопросов {s['ru']}, нужно минимум {self.min_ru}")
-        if s["kk"] < self.min_kk:
-            problems.append(f"казахских вопросов {s['kk']}, нужно минимум {self.min_kk}")
-        if s["real"] < self.min_real:
-            problems.append(f"вопросов с origin='real' {s['real']}, нужно минимум {self.min_real}")
-        if self.require_human_review:
-            unreviewed = [q.id for q in dataset.ready if not q.reviewed_by_human]
-            if unreviewed:
-                shown = ", ".join(unreviewed[:10])
-                tail = f" и ещё {len(unreviewed) - 10}" if len(unreviewed) > 10 else ""
-                problems.append(f"не отревьюировано человеком: {shown}{tail}")
-        return problems
 
 
 def load_dataset(path: str | Path) -> EvalDataset:
@@ -363,9 +428,11 @@ def validate_against_corpus(
         # поиском «4.» по тексту: парсер выносит номер пункта в отдельное поле,
         # и в тексте статьи его уже нет. Без списка проверка пропускается —
         # это честнее, чем угадывать по подстроке и врать в обе стороны.
-        if article_clauses is not None and q.preferred_clause:
-            known = article_clauses.get(q.preferred_clause.article)
-            if known is not None and normalize_clause(q.preferred_clause.clause) not in known:
-                report.missing_clauses.append((q.id, str(q.preferred_clause)))
+        if article_clauses is not None:
+            refs = (*q.required_clauses, *([q.preferred_clause] if q.preferred_clause else []))
+            for ref in dict.fromkeys(refs):
+                known = article_clauses.get(ref.article)
+                if known is not None and normalize_clause(ref.clause) not in known:
+                    report.missing_clauses.append((q.id, str(ref)))
 
     return report

@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import os
 
-from kz_labor_rag.config import Config
+from kz_labor_rag.config import Config, ConfigError
 from kz_labor_rag.corpus.chunker import ChunkingParams, chunking_signature
 from kz_labor_rag.embeddings.encoder import E5Encoder, EmbeddingCache, Encoder, EncoderParams
+from kz_labor_rag.retrieval.analyzers import Analyzer
+from kz_labor_rag.retrieval.bm25 import BM25Retriever
 from kz_labor_rag.retrieval.dense import DenseRetriever
+from kz_labor_rag.retrieval.hybrid import HybridRetriever
+from kz_labor_rag.retrieval.rerank import CrossEncoderScorer, RerankingRetriever
 from kz_labor_rag.retrieval.store import PgVectorStore, StoreParams
+from kz_labor_rag.types import Retriever
 
 DEFAULT_DSN = "postgresql://kzrag:kzrag@localhost:5432/kzrag"
 
@@ -61,15 +66,60 @@ def build_store(config: Config) -> PgVectorStore:
     )
 
 
-def build_retriever(config: Config, encoder: Encoder | None = None) -> DenseRetriever:
-    if config.get("retrieval.hybrid.enabled") or config.get("retrieval.reranker.enabled"):
-        raise NotImplementedError(
-            "гибридный поиск и reranking ещё не реализованы — это отдельные "
-            "запланированные итерации. Выключите их в конфиге."
+IMPLEMENTATIONS = ("dense", "bm25", "hybrid")
+
+
+def build_retriever(config: Config, encoder: Encoder | None = None) -> Retriever:
+    """Поиск по конфигу: dense, bm25 или hybrid, опционально с реранкингом.
+
+    BM25 строится по чанкам из той же таблицы pgvector, что и dense: иначе
+    методы сравнивались бы на разных текстах.
+    """
+    implementation = config.get("retrieval.implementation")
+    if implementation not in IMPLEMENTATIONS:
+        raise ConfigError(
+            f"retrieval.implementation='{implementation}', допустимы: {', '.join(IMPLEMENTATIONS)}"
         )
-    return DenseRetriever(
-        store=build_store(config),
+    version = config.version
+    store = build_store(config)
+    dense = DenseRetriever(
+        store=store,
         encoder=encoder or build_encoder(config),
-        version=config.version,
+        version=version,
         candidate_k=int(config.get("retrieval.candidate_k")),
     )
+
+    base: Retriever = dense
+    if implementation in ("bm25", "hybrid"):
+        lexical = BM25Retriever(
+            store.all_chunks,
+            Analyzer(config.get("retrieval.bm25.analyzer")),
+            k1=float(config.get("retrieval.bm25.k1")),
+            b=float(config.get("retrieval.bm25.b")),
+            version=version,
+            provenance=dense.provenance,
+        )
+        base = lexical
+        if implementation == "hybrid":
+            base = HybridRetriever(
+                dense,
+                lexical,
+                candidate_k=int(config.get("retrieval.hybrid.candidate_k")),
+                rrf_k=int(config.get("retrieval.hybrid.rrf_k")),
+                version=version,
+            )
+
+    if config.get("retrieval.reranker.enabled"):
+        scorer = CrossEncoderScorer(
+            config.get("retrieval.reranker.model"),
+            max_length=int(config.get("retrieval.reranker.max_length")),
+            batch_size=int(config.get("retrieval.reranker.batch_size")),
+            device=config.get("retrieval.reranker.device"),
+        )
+        base = RerankingRetriever(
+            base,
+            scorer,
+            candidate_k=int(config.get("retrieval.reranker.candidate_k")),
+            version=version,
+        )
+    return base

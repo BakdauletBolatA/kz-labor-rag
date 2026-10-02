@@ -204,9 +204,11 @@ class TestRealRunResultsAreComparable:
                         "question": f"вопрос {i}",
                         "lang": "ru",
                         "origin": "synthetic",
+                        "type": "condition",
                         "required_articles": ["54"],
+                        "required_clauses": [{"article": "54", "clause": "1"}],
                         "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
-                        "reviewed_by_human": True,
+                        "verified": True,
                     }
                 )
                 for i in range(1, 4)
@@ -220,7 +222,7 @@ class TestRealRunResultsAreComparable:
 
         hits = ranked("54", "1") if found else ranked("1", "2")
         retriever = FakeRetriever({q.question: hits for q in dataset})
-        return EvalRunner(config, retriever).run(dataset, enforce_gate=False)
+        return EvalRunner(config, retriever).run(dataset)
 
     def test_result_carries_every_comparability_key(self, config, dataset):
         result = self._run(config, dataset, found=True)

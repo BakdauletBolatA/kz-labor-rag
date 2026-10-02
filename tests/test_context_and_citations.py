@@ -13,9 +13,11 @@ from kz_labor_rag.eval.judge import context_format_fingerprint, format_context
 from kz_labor_rag.types import Chunk, RetrievedChunk
 
 
-def chunk(cid: str, *articles: str, title: str = "", text: str = "текст нормы") -> RetrievedChunk:
+def chunk(
+    cid: str, *articles: str, title: str = "", text: str = "текст нормы", spans=()
+) -> RetrievedChunk:
     return RetrievedChunk(
-        chunk=Chunk(chunk_id=cid, text=text, articles=articles, article_title=title),
+        chunk=Chunk(chunk_id=cid, text=text, articles=articles, article_title=title, spans=spans),
         score=0.9,
         rank=1,
     )
@@ -31,7 +33,15 @@ class TestContextLabelling:
 
     def test_single_article_chunk_is_labelled_by_number(self):
         out = format_context([chunk("c1", "54", title="Ограничение расторжения")])
-        assert "[Статья 54]" in out
+        assert "[Фрагмент 1 — ст. 54]" in out
+
+    def test_clauses_are_listed_so_they_can_be_cited(self):
+        out = format_context([chunk("c1", "54", spans=(("54", "1"), ("54", "2")))])
+        assert "[Фрагмент 1 — ст. 54 п. 1; ст. 54 п. 2]" in out
+
+    def test_unnumbered_clause_is_labelled_by_article(self):
+        out = format_context([chunk("c1", "83", spans=(("83", ""),))])
+        assert "[Фрагмент 1 — ст. 83]" in out
 
     def test_title_is_not_shown_even_when_the_chunk_has_one(self):
         # Заголовок заполняет только нарезка по статьям. Показывай его подпись —
@@ -52,7 +62,7 @@ class TestContextLabelling:
 
     def test_multi_article_chunk_does_not_claim_a_single_article(self):
         out = format_context([chunk("c1", "45", "46", "47", "48", title="Перемещение")])
-        assert "[Статья 45" not in out
+        assert "— ст. 45]" not in out
         assert "Перемещение" not in out
 
     def test_boundary_crossing_is_stated_explicitly(self):

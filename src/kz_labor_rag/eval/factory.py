@@ -2,7 +2,7 @@
 
 Ключи API читаются только отсюда и только из переменных окружения. Главное
 правило: отсутствие ключа — это не ошибка. Пайплайн обязан пройти целиком,
-посчитать recall@5, MRR и clause-метрики и честно записать faithfulness как
+посчитать recall@5, MRR и article_recall@5 и честно записать faithfulness как
 ``null``. Падать здесь значит терять все метрики поиска из-за компонента,
 который к поиску отношения не имеет.
 """
@@ -13,7 +13,12 @@ import logging
 import os
 
 from kz_labor_rag.config import Config
-from kz_labor_rag.eval.generator import AnthropicGenerator, DisabledGenerator, Generator
+from kz_labor_rag.eval.generator import (
+    AnthropicGenerator,
+    DisabledGenerator,
+    Generator,
+    OllamaGenerator,
+)
 from kz_labor_rag.eval.judge import AnthropicJudge, DisabledJudge, Judge
 
 log = logging.getLogger(__name__)
@@ -38,13 +43,24 @@ def build_generator(config: Config) -> Generator:
         return DisabledGenerator("генерация отключена в конфиге")
 
     provider = config.get("generation.provider")
+    if provider == "ollama":
+        return OllamaGenerator(
+            model=config.get("generation.model"),
+            base_url=config.get("generation.base_url"),
+            prompt_id=config.get("generation.prompt_id"),
+            prompt_version=config.get("generation.prompt_version"),
+            max_tokens=int(config.get("generation.max_tokens")),
+            temperature=float(config.get("generation.temperature")),
+            num_ctx=int(config.get("generation.num_ctx")),
+            seed=int(config.get("eval.seed")),
+        )
     if provider != "anthropic":
         return DisabledGenerator(f"провайдер генерации '{provider}' пока не поддержан")
 
     if env_name := missing_key_env(provider):
         log.warning(
             "%s не задан — генерация ответов отключена. Метрики поиска "
-            "(recall@k, MRR, clause-метрики) считаются как обычно, "
+            "(recall@k, MRR, article_recall@k) считаются как обычно, "
             "faithfulness и citation_validity будут null. "
             "Чтобы включить: скопируйте .env.example в .env и заполните %s.",
             env_name,

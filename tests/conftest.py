@@ -38,12 +38,17 @@ def make_chunk(
     )
 
 
-def ranked(*articles: str) -> list[RetrievedChunk]:
-    """Выдача из чанков по одной статье на чанк, скор убывает вместе с рангом."""
-    return [
-        RetrievedChunk(chunk=make_chunk(a), score=1.0 - i * 0.1, rank=i + 1)
-        for i, a in enumerate(articles)
-    ]
+def ranked(*refs: str) -> list[RetrievedChunk]:
+    """Выдача из чанков по одной статье на чанк, скор убывает вместе с рангом.
+
+    ``"54"`` — чанк статьи без пунктов, ``"54/1"`` — чанк с пунктом 1 статьи 54.
+    """
+    out = []
+    for i, ref in enumerate(refs):
+        article, _, clause = ref.partition("/")
+        chunk = make_chunk(article, (clause,) if clause else (), cid=f"c{i}-{ref}")
+        out.append(RetrievedChunk(chunk=chunk, score=1.0 - i * 0.1, rank=i + 1))
+    return out
 
 
 class FakeRetriever:
@@ -103,13 +108,6 @@ def config() -> Config:
                 "k": 5,
                 "languages": ["ru", "kk"],
                 "primary_language": "ru",
-                "completeness": {
-                    "enforce": True,
-                    "min_ru": 60,
-                    "min_kk": 15,
-                    "min_real": 15,
-                    "require_human_review": True,
-                },
             },
         }
     )
@@ -130,7 +128,7 @@ def config() -> Config:
 
 PRODUCTION_FILES = (
     "evals/datasets/kz_labor_v1.jsonl",
-    "evals/datasets/REVIEW.md",
+    "evals/questions.jsonl",
     "config/default.yaml",
     "src/kz_labor_rag/eval/prompts/REGISTRY.json",
     "src/kz_labor_rag/eval/prompts/answer_ru.v1.txt",
@@ -140,7 +138,7 @@ PRODUCTION_FILES = (
 # Каталоги, в которые тест не имеет права ничего дописать.
 PRODUCTION_DIRS = (".cache/embeddings", "evals/results", "data/processed")
 
-# Таблица боевого индекса. Тесты обязаны работать с любой другой.
+# Таблица боевого индекса baseline. Тесты обязаны работать с любой другой.
 PRODUCTION_TABLE = "chunks"
 
 

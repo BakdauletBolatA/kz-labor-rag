@@ -1,6 +1,10 @@
 {
+  "answer_judge_ru": {
+    "v1": "67fcd5f6a2f38445238a0510883de1309417eb927b889703d18437207f6efb48"
+  },
   "answer_ru": {
-    "v1": "3db24cae74c347d7aa3ad770cf0146a38e9270bd8f9cc11ecaf0bc9f37439765"
+    "v1": "3db24cae74c347d7aa3ad770cf0146a38e9270bd8f9cc11ecaf0bc9f37439765",
+    "v2": "772ac210f2b2a8f7f1711bad1c1f3b2d703d60de04c032caf3c256fef8c951af"
   },
   "faithfulness_ru": {
     "v1": "275d85e4a63a08b66845a172bbeea6a4d4a34f595bc02899c13d947d4ce292d1"

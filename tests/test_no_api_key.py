@@ -61,9 +61,11 @@ def question(qid: str, text: str) -> EvalQuestion:
             "question": text,
             "lang": "ru",
             "origin": "synthetic",
+            "type": "condition",
             "required_articles": ["54"],
+            "required_clauses": [{"article": "54", "clause": "1"}],
             "evidence": [{"article": "54", "quote": "Не допускается расторжение"}],
-            "reviewed_by_human": True,
+            "verified": True,
         }
     )
 
@@ -142,7 +144,7 @@ class TestFullRunWithoutKeys:
 
     def test_pipeline_completes_and_reports_search_metrics(self, llm_config, no_keys):
         dataset = self._kk(self._dataset())
-        responses = {q.question: ranked("54", "1", "2") for q in dataset}
+        responses = {q.question: ranked("54/1", "1", "2") for q in dataset}
 
         generator = build_generator(llm_config)
         judge = build_judge(llm_config, generator=generator)
@@ -163,7 +165,7 @@ class TestFullRunWithoutKeys:
 
     def test_result_records_why_llm_was_skipped(self, llm_config, no_keys):
         dataset = self._kk(self._dataset())
-        responses = {q.question: ranked("54") for q in dataset}
+        responses = {q.question: ranked("54/1") for q in dataset}
 
         generator = build_generator(llm_config)
         judge = build_judge(llm_config, generator=generator)
@@ -188,5 +190,8 @@ class TestFullRunWithoutKeys:
         generator = build_generator(llm_config)
         judge = build_judge(llm_config, generator=generator)
         EvalRunner(
-            llm_config, FakeRetriever({q.question: ranked("54") for q in dataset}), generator, judge
+            llm_config,
+            FakeRetriever({q.question: ranked("54/1") for q in dataset}),
+            generator,
+            judge,
         ).run(dataset)
