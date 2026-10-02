@@ -148,3 +148,33 @@ def test_retry_picks_failed_generations_and_missing_verdicts():
     records = [good, failed, unjudged, no_judge]
     assert answer_eval.needs_retry(records, judge_on=True) == ["b", "c", "d"]
     assert answer_eval.needs_retry(records, judge_on=False) == ["b"]
+
+
+class TestRefusalIsGrounded:
+    """Отказ без утверждений обоснован по определению — решает код, а не судья.
+
+    Судья gpt-5 на 4 из 20 размеченных ответов ставил отказу «ungrounded», раз
+    ответ в кодексе был, — подмешивал правильность в обоснованность вопреки
+    своему промпту. Ручная разметка с ним в этом расходилась.
+    """
+
+    def test_refusal_counts_as_grounded_in_aggregates(self):
+        refusal = {
+            **record(refused=True, valid=0),
+            "judge": {"correctness": "incorrect", "groundedness": "ungrounded"},
+        }
+        agg = answer_eval.aggregate([refusal])
+        assert agg["groundedness"] == 1.0
+        assert agg["correctness"] == 0.0
+
+    def test_refusal_counts_as_grounded_in_agreement(self):
+        from kz_labor_rag.eval.citations import REFUSAL
+
+        row = {
+            "answer": REFUSAL,
+            "label_correctness": "incorrect",
+            "label_groundedness": "grounded",
+            "judge": {"correctness": "incorrect", "groundedness": "ungrounded"},
+        }
+        table = answer_eval.agreement_table([row], "gpt-5")
+        assert "| groundedness | 1.000 |" in table
