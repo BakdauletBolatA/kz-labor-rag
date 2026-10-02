@@ -258,6 +258,15 @@ def write_labels(rows: list[dict]) -> None:
     tmp.replace(LABELS)
 
 
+def set_label(row_id: str, correctness: str | None, groundedness: str | None) -> None:
+    """Записать одну метку, перечитав файл: другая открытая сессия могла уже что-то сохранить."""
+    rows = read_labels()
+    for row in rows:
+        if row["id"] == row_id:
+            row["label_correctness"], row["label_groundedness"] = correctness, groundedness
+    write_labels(rows)
+
+
 def ask_choice(prompt: str, options: dict[str, str]) -> str | None:
     keys = "/".join(options)
     while True:
@@ -285,8 +294,8 @@ def cmd_label(args) -> int:
             "Обоснованность фрагментами: g — да, p — частично, u — нет",
             {"g": "grounded", "p": "partially_grounded", "u": "ungrounded"},
         )
-        row["label_correctness"], row["label_groundedness"] = correctness, grounded
-        write_labels(rows)
+        set_label(row["id"], correctness, grounded)
+    rows = read_labels()
     done = sum(1 for r in rows if r["label_correctness"] and r["label_groundedness"])
     print(f"\nРазмечено {done} из {len(rows)}.")
     return 0

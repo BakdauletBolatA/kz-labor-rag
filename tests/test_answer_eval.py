@@ -57,3 +57,32 @@ def test_judge_scores_are_averaged():
     )
     assert agg["correctness"] == 0.75
     assert agg["groundedness"] == 0.5
+
+
+def test_label_writes_do_not_clobber_another_session(tmp_path, monkeypatch):
+    import json
+
+    path = tmp_path / "labels.jsonl"
+    rows = [
+        {
+            "id": i,
+            "type": "fact",
+            "question": "q",
+            "reference": "r",
+            "context": "c",
+            "answer": "a",
+            "label_correctness": None,
+            "label_groundedness": None,
+        }
+        for i in ("a", "b")
+    ]
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows), "utf-8")
+    monkeypatch.setattr(answer_eval, "LABELS", path)
+    # Вторая сессия открыта раньше и держит старую копию; первая уже разметила «a».
+    stale = answer_eval.read_labels()
+    answer_eval.set_label("a", "correct", "grounded")
+    stale[1]["label_correctness"], stale[1]["label_groundedness"] = "incorrect", "ungrounded"
+    answer_eval.set_label("b", "incorrect", "ungrounded")
+    saved = {r["id"]: r for r in answer_eval.read_labels()}
+    assert saved["a"]["label_correctness"] == "correct"
+    assert saved["b"]["label_correctness"] == "incorrect"
