@@ -46,7 +46,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(f"  {key:24} {value}")
 
     verified = dataset.verified
-    print(f"\nПроверено человеком: {len(verified)} из {len(dataset.ready)} готовых.")
+    by_human = sum(1 for q in verified if q.verified_by == "human")
+    print(
+        f"\nПроверено: {len(verified)} из {len(dataset.ready)} готовых "
+        f"(человеком {by_human}, моделью {len(verified) - by_human})."
+    )
     if not verified:
         print("Метрики считать не по чему: нет ни одного проверенного вопроса.")
         return 1
