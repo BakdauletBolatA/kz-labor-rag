@@ -45,24 +45,28 @@ EMBEDDINGS: dict[str, dict] = {
     },
 }
 
+
+def method(implementation: str, *, rerank: bool = False, **extra) -> dict:
+    """Переопределения конфига для метода. Реранкер включается или выключается
+    явно: конфиг сервиса его включает, и метод без реранкера не должен его
+    наследовать — иначе baseline таблицы тихо превращается в dense+rerank."""
+    return {
+        "retrieval.implementation": implementation,
+        "retrieval.reranker.enabled": rerank,
+        **extra,
+    }
+
+
 METHODS: dict[str, dict] = {
-    "dense": {"retrieval.implementation": "dense"},
-    "bm25-lemma": {"retrieval.implementation": "bm25", "retrieval.bm25.analyzer": "lemma"},
-    "bm25-stem": {"retrieval.implementation": "bm25", "retrieval.bm25.analyzer": "stem"},
-    "hybrid": {"retrieval.implementation": "hybrid"},
-    "dense+rerank": {"retrieval.implementation": "dense", "retrieval.reranker.enabled": True},
-    "hybrid+rerank": {"retrieval.implementation": "hybrid", "retrieval.reranker.enabled": True},
+    "dense": method("dense"),
+    "bm25-lemma": method("bm25", **{"retrieval.bm25.analyzer": "lemma"}),
+    "bm25-stem": method("bm25", **{"retrieval.bm25.analyzer": "stem"}),
+    "hybrid": method("hybrid"),
+    "dense+rerank": method("dense", rerank=True),
+    "hybrid+rerank": method("hybrid", rerank=True),
     # Реранкеру отдаётся 40 кандидатов вместо 20: вдруг нужный пункт стоял ниже.
-    "dense+rerank-k40": {
-        "retrieval.implementation": "dense",
-        "retrieval.reranker.enabled": True,
-        "retrieval.reranker.candidate_k": 40,
-    },
-    "hybrid+rerank-k40": {
-        "retrieval.implementation": "hybrid",
-        "retrieval.reranker.enabled": True,
-        "retrieval.reranker.candidate_k": 40,
-    },
+    "dense+rerank-k40": method("dense", rerank=True, **{"retrieval.reranker.candidate_k": 40}),
+    "hybrid+rerank-k40": method("hybrid", rerank=True, **{"retrieval.reranker.candidate_k": 40}),
 }
 
 

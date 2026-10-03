@@ -171,3 +171,25 @@ def test_refilter_drops_questions_that_are_no_longer_verified():
     retrieval_eval.refilter(rows, runs, keep={"q1", "q2"}, k=5)
     assert rows[0]["n"] == 2 and rows[0]["recall@5"] == 0.5 and rows[0]["mrr"] == 0.5
     assert [q["id"] for q in runs["a/e/m"]["questions"]] == ["q1", "q2"]
+
+
+def test_methods_without_rerank_switch_it_off_even_if_the_base_config_enables_it():
+    """Конфиг сервиса включает реранкер; ячейка «dense» или «hybrid» не должна его
+    наследовать — иначе baseline таблицы тихо превращается в dense+rerank."""
+    from kz_labor_rag.eval.experiments import CHUNKINGS, METHODS
+
+    base = load_config(apply_env=False)
+    base.data["retrieval"]["reranker"]["enabled"] = True
+    for name, overrides in METHODS.items():
+        config = derive(base, CHUNKINGS["fixed512"], overrides, version="v", table="t")
+        expected = "rerank" in name
+        assert config.get("retrieval.reranker.enabled") is expected, name
+
+
+def test_only_filter_is_exact_for_full_cell_names_and_a_substring_otherwise():
+    full = "fixed512/e5-base/dense"
+    assert retrieval_eval.matches(full, "fixed512/e5-base/dense")
+    assert not retrieval_eval.matches("fixed512/e5-base/dense+rerank", "fixed512/e5-base/dense")
+    assert retrieval_eval.matches("clause+header/e5-base/dense+rerank-k40", "k40")
+    assert retrieval_eval.matches(full, "k40,fixed512/e5-base/dense")
+    assert retrieval_eval.matches(full, None)

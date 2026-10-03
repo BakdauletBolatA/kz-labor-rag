@@ -180,6 +180,13 @@ def render(rows: list[dict], k: int, n_info: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def matches(version: str, only: str | None) -> bool:
+    """Фильтр ячеек: запись с «/» — точное название ячейки, без «/» — подстрока."""
+    if not only:
+        return True
+    return any(version == part if "/" in part else part in version for part in only.split(","))
+
+
 def table_name(split: str) -> str:
     return "retrieval_table.md" if split == "dev" else f"retrieval_table_{split}.md"
 
@@ -294,7 +301,7 @@ def main() -> int:
     chunk_texts: dict[str, list[str]] = {}
     for chunking_name, embeddings, method in CELLS:
         version = f"{chunking_name}/{embeddings}/{method}"
-        if args.only and not any(part in version for part in args.only.split(",")):
+        if not matches(version, args.only):
             continue
         config = cell_config(base, chunking_name, embeddings, method)
 
