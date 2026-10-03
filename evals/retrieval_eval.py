@@ -210,7 +210,9 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
-        "--only", default=None, help="оставить ячейки, где «нарезка/модель/метод» содержит строку"
+        "--only",
+        default=None,
+        help="оставить ячейки, где «нарезка/модель/метод» содержит любую из строк (через запятую)",
     )
     parser.add_argument("--results-dir", default="evals/results")
     parser.add_argument(
@@ -239,7 +241,7 @@ def main() -> int:
     chunk_texts: dict[str, list[str]] = {}
     for chunking_name, embeddings, method in CELLS:
         version = f"{chunking_name}/{embeddings}/{method}"
-        if args.only and args.only not in version:
+        if args.only and not any(part in version for part in args.only.split(",")):
             continue
         config = cell_config(base, chunking_name, embeddings, method)
 
