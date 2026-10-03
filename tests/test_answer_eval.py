@@ -178,3 +178,20 @@ class TestRefusalIsGrounded:
         }
         table = answer_eval.agreement_table([row], "gpt-5")
         assert "| groundedness | 1.000 |" in table
+
+
+def test_aggregate_reports_intervals_and_correctness_by_type():
+    judged = lambda c, t: {  # noqa: E731
+        **record(judge={"correctness": c, "groundedness": "grounded"}),
+        "type": t,
+        "answer": "x",
+    }
+    records = [judged("correct", "fact")] * 10 + [judged("incorrect", "multi")] * 10
+    agg = answer_eval.aggregate(records, seed=1)
+    low, high = agg["ci"]["correctness"]
+    assert low < 0.5 < high
+    assert agg["by_type"]["fact"]["correctness"] == 1.0
+    assert agg["by_type"]["multi"]["n"] == 10
+    table = answer_eval.render("cell", agg, {"model": "m", "prompt": "p"}, "note")
+    assert "0.500 [" in table
+    assert "| multi | 10 | 0.000" in table

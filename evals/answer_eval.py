@@ -53,6 +53,7 @@ from kz_labor_rag.eval.dataset import QUESTION_TYPES, load_dataset
 from kz_labor_rag.eval.experiments import cell_config
 from kz_labor_rag.eval.factory import build_generator
 from kz_labor_rag.eval.judge import format_context
+from kz_labor_rag.eval.stats import bootstrap_ci
 
 log = logging.getLogger("answer_eval")
 
@@ -109,7 +110,8 @@ def mean(values) -> float | None:
     return statistics.fmean(values) if values else None
 
 
-def aggregate(records: list[dict]) -> dict:
+def aggregate(records: list[dict], seed: int | None = None) -> dict:
+    """Агрегаты прогона; с ``seed`` — ещё и 95% bootstrap-интервалы по вопросам."""
     # Упавшая генерация (ошибка Ollama, обрыв) — не «ответил плохо», а «не
     # измерено»: в метрики не идёт, но число таких ответов видно в таблице.
     failed = [r for r in records if r.get("error")]
@@ -119,23 +121,45 @@ def aggregate(records: list[dict]) -> dict:
     valid = sum(len(r["citations"]) for r in records)
     invalid = sum(len(r["invalid_citations"]) for r in records)
     judged = [r for r in records if r.get("judge", {}).get("correctness")]
+
+    def correctness(r) -> float:
+        return CORRECTNESS[r["judge"]["correctness"]]
+
+    def groundedness(r) -> float:
+        verdict = groundedness_of(r.get("answer", ""), r["refused"], r["judge"]["groundedness"])
+        return GROUNDEDNESS[verdict]
+
+    samples = {
+        "answer_rate": [float(not r["refused"]) for r in answerable],
+        "citation_hit": [float(r["citation_hit"]) for r in answerable],
+        "correct_refusal": [float(r["refused"]) for r in unanswerable],
+        "correctness": [correctness(r) for r in judged],
+        "groundedness": [groundedness(r) for r in judged],
+    }
+    by_type: dict[str, dict] = {}
+    for r in judged:
+        by_type.setdefault(r.get("type", "?"), []).append(correctness(r))
     return {
         "n_answerable": len(answerable),
         "n_unanswerable": len(unanswerable),
-        "answer_rate": mean(not r["refused"] for r in answerable),
-        "citation_hit": mean(r["citation_hit"] for r in answerable),
+        **{name: mean(values) for name, values in samples.items()},
         "citation_validity": valid / (valid + invalid) if valid + invalid else None,
         "withheld": mean(r["withheld"] for r in records),
-        "correct_refusal": mean(r["refused"] for r in unanswerable),
         "n_failed": len(failed),
         "n_judged": len(judged),
-        "correctness": mean(CORRECTNESS[r["judge"]["correctness"]] for r in judged),
-        "groundedness": mean(
-            GROUNDEDNESS[
-                groundedness_of(r.get("answer", ""), r["refused"], r["judge"]["groundedness"])
-            ]
-            for r in judged
+        "ci": (
+            {name: bootstrap_ci(values, seed=seed) for name, values in samples.items()}
+            if seed is not None
+            else {}
         ),
+        "by_type": {
+            t: {
+                "n": len(v),
+                "correctness": mean(v),
+                "ci": bootstrap_ci(v, seed=seed) if seed is not None else None,
+            }
+            for t, v in sorted(by_type.items())
+        },
         "generation_p50_ms": (
             statistics.median(r["latency_ms"]["generation"] for r in records) if records else None
         ),
@@ -146,22 +170,43 @@ def fmt(value) -> str:
     return "—" if value is None else f"{value:.3f}"
 
 
+def with_ci(agg: dict, name: str) -> str:
+    value, ci = agg.get(name), (agg.get("ci") or {}).get(name)
+    if value is None:
+        return "—"
+    return f"{value:.3f} [{ci[0]:.2f}, {ci[1]:.2f}]" if ci else f"{value:.3f}"
+
+
 def render(cell: str, agg: dict, generator: dict, judge_note: str) -> str:
-    return (
+    failed = f" (+{n} failed to generate, not scored)" if (n := agg.get("n_failed")) else ""
+    lines = [
         f"Cell: `{cell}`, generator: `{generator.get('model')}` "
         f"({generator.get('prompt')}). Verified questions: "
-        f"{agg['n_answerable']} answerable, {agg['n_unanswerable']} unanswerable"
-        f"{f' (+{n} failed to generate, not scored)' if (n := agg.get('n_failed')) else ''}. "
-        f"{judge_note}\n\n"
+        f"{agg['n_answerable']} answerable, {agg['n_unanswerable']} unanswerable{failed}. "
+        f"{judge_note} Intervals: 95% bootstrap over questions.",
+        "",
         "| answer_rate | citation_hit | citation_validity | withheld | correct_refusal | "
-        "correctness | groundedness | n_judged | generation p50, s |\n"
-        "|---|---|---|---|---|---|---|---|---|\n"
-        f"| {fmt(agg['answer_rate'])} | {fmt(agg['citation_hit'])} | "
+        "correctness | groundedness | n_judged | generation p50, s |",
+        "|---|---|---|---|---|---|---|---|---|",
+        f"| {with_ci(agg, 'answer_rate')} | {with_ci(agg, 'citation_hit')} | "
         f"{fmt(agg['citation_validity'])} | {fmt(agg['withheld'])} | "
-        f"{fmt(agg['correct_refusal'])} | {fmt(agg['correctness'])} | "
-        f"{fmt(agg['groundedness'])} | {agg['n_judged']} | "
-        f"{fmt(agg['generation_p50_ms'] and agg['generation_p50_ms'] / 1000)} |\n"
-    )
+        f"{with_ci(agg, 'correct_refusal')} | {with_ci(agg, 'correctness')} | "
+        f"{with_ci(agg, 'groundedness')} | {agg['n_judged']} | "
+        f"{fmt(agg['generation_p50_ms'] and agg['generation_p50_ms'] / 1000)} |",
+    ]
+    if agg.get("by_type"):
+        lines += [
+            "",
+            "Correctness by question type:",
+            "",
+            "| type | n | correctness |",
+            "|---|---|---|",
+        ]
+        for t, v in agg["by_type"].items():
+            ci = v.get("ci")
+            value = f"{v['correctness']:.3f}" + (f" [{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "")
+            lines.append(f"| {t} | {v['n']} | {value} |")
+    return "\n".join(lines) + "\n"
 
 
 def setup(cell):
@@ -253,7 +298,7 @@ def cmd_run(args) -> int:
         checkpoint.add(record)
     records = checkpoint.records
 
-    agg = aggregate(records)
+    agg = aggregate(records, seed=int(base.get("eval.seed")))
     cell = "/".join(args.cell)
     note = (
         f"Judge: `{judge.model}` ({judge.descriptor['prompt']})."
@@ -317,7 +362,7 @@ def cmd_retry_failed(args) -> int:
             run_judge(judge, questions[record["id"]], code, new)
         payload["questions"][i] = {key: v for key, v in new.items() if key != "_hits"}
 
-    agg = aggregate(payload["questions"])
+    agg = aggregate(payload["questions"], seed=int(base.get("eval.seed")))
     payload["aggregates"] = agg
     payload["retried"] = retry
     note = (
@@ -345,7 +390,7 @@ def cmd_rescore(args) -> int:
     out = Path(args.results_dir)
     latest = sorted((out / "answers").glob("2*.json"))[-1]
     payload = json.loads(latest.read_text("utf-8"))
-    agg = aggregate(payload["questions"])
+    agg = aggregate(payload["questions"], seed=int(load_config().get("eval.seed")))
     payload["aggregates"] = agg
     payload["rescored_from"] = latest.name
     judge = payload.get("judge") or {}

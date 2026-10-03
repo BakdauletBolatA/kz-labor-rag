@@ -128,33 +128,33 @@ Script: [`evals/retrieval_eval.py`](evals/retrieval_eval.py). Full per-question
 output: `evals/results/retrieval/*.json`.
 
 <!-- BEGIN retrieval_table -->
-Verified questions with a retrieval gold: n = 72 (real 13, synthetic 59). Latency is measured on CPU after warm-up.
+Verified questions with a retrieval gold: n = 72 (real 13, synthetic 59). Latency is measured on CPU after warm-up. Intervals: bootstrap over questions (10,000 resamples); Δ: paired bootstrap against `fixed512/e5-base/dense`, `*` — the interval excludes zero.
 
-| chunking | embeddings | method | chunks | context tokens@5 | recall@5 | MRR | article_recall@5 | latency p50, ms | latency p95, ms | dense p50 | bm25 p50 | fusion p50 | rerank p50 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| fixed512 | e5-base | dense | 143 | 2537 | 0.649 | 0.479 | 0.736 | 56.2 | 64.7 | 56.2 | — | — | — |
-| fixed512 | e5-base | bm25-lemma | 143 | 2536 | 0.465 | 0.303 | 0.514 | 0.3 | 0.5 | — | 0.3 | — | — |
-| fixed512 | e5-base | hybrid | 143 | 2537 | 0.688 | 0.494 | 0.743 | 53.1 | 76.1 | 52.6 | 0.4 | 0.1 | — |
-| fixed512 | e5-base | hybrid+rerank | 143 | 2537 | 0.799 | 0.652 | 0.854 | 7374.4 | 15666.8 | 67.1 | 0.8 | 0.1 | 7263.5 |
-| fixed512-overlap128 | e5-base | dense | 191 | 2536 | 0.778 | 0.572 | 0.826 | 65.3 | 72.6 | 65.3 | — | — | — |
-| fixed512-overlap128 | e5-base | bm25-lemma | 191 | 2536 | 0.444 | 0.314 | 0.472 | 0.3 | 0.6 | — | 0.3 | — | — |
-| fixed512-overlap128 | e5-base | hybrid | 191 | 2536 | 0.701 | 0.554 | 0.743 | 56.1 | 71.2 | 55.5 | 0.5 | 0.1 | — |
-| fixed512-overlap128 | e5-base | hybrid+rerank | 191 | 2536 | 0.819 | 0.655 | 0.854 | 7024.3 | 15202.1 | 65.0 | 0.7 | 0.1 | 6951.6 |
-| clause | e5-base | dense | 767 | 436 | 0.675 | 0.616 | 0.788 | 60.9 | 76.0 | 60.9 | — | — | — |
-| clause | e5-base | bm25-lemma | 767 | 411 | 0.354 | 0.268 | 0.438 | 0.6 | 1.2 | — | 0.6 | — | — |
-| clause | e5-base | hybrid | 767 | 428 | 0.612 | 0.521 | 0.705 | 59.1 | 73.7 | 58.2 | 0.9 | 0.1 | — |
-| clause | e5-base | hybrid+rerank | 767 | 449 | 0.727 | 0.683 | 0.792 | 2376.0 | 3728.9 | 67.8 | 1.0 | 0.1 | 2306.4 |
-| article | e5-base | dense | 276 | 1210 | 0.736 | 0.612 | 0.736 | 59.5 | 66.6 | 59.5 | — | — | — |
-| article | e5-base | bm25-lemma | 276 | 1450 | 0.451 | 0.333 | 0.451 | 0.3 | 0.6 | — | 0.3 | — | — |
-| article | e5-base | hybrid | 276 | 1394 | 0.688 | 0.526 | 0.688 | 48.7 | 56.9 | 48.1 | 0.5 | 0.1 | — |
-| article | e5-base | hybrid+rerank | 276 | 1409 | 0.872 | 0.734 | 0.872 | 4938.7 | 5760.5 | 52.7 | 0.7 | 0.1 | 4868.2 |
-| clause+header | e5-base | dense | 767 | 584 | 0.748 | 0.656 | 0.826 | 55.3 | 62.7 | 55.3 | — | — | — |
-| clause+header | e5-base | bm25-lemma | 767 | 509 | 0.361 | 0.280 | 0.438 | 0.6 | 1.2 | — | 0.6 | — | — |
-| clause+header | e5-base | hybrid | 767 | 528 | 0.686 | 0.561 | 0.733 | 54.5 | 64.9 | 53.4 | 0.9 | 0.1 | — |
-| clause+header | e5-base | hybrid+rerank | 767 | 604 | 0.787 | 0.705 | 0.854 | 3053.5 | 3648.0 | 58.6 | 1.0 | 0.1 | 2996.1 |
-| fixed512 | e5-base | bm25-stem | 143 | 2536 | 0.451 | 0.364 | 0.500 | 0.2 | 0.3 | — | 0.2 | — | — |
-| fixed512 | e5-base | dense+rerank | 143 | 2537 | 0.851 | 0.677 | 0.885 | 6765.2 | 7208.2 | 56.3 | — | — | 6710.0 |
-| fixed512 | bge-m3 | dense | 143 | 2536 | 0.726 | 0.536 | 0.795 | 130.3 | 148.0 | 130.3 | — | — | — |
+| chunking | embeddings | method | chunks | context tokens@5 | recall@5 [95% CI] | MRR [95% CI] | Δ recall@5 vs baseline | article_recall@5 | latency p50, ms | latency p95, ms | dense p50 | bm25 p50 | fusion p50 | rerank p50 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| fixed512 | e5-base | dense | 143 | 2537 | 0.649 [0.54, 0.75] | 0.479 [0.38, 0.58] | baseline | 0.736 | 56.2 | 64.7 | 56.2 | — | — | — |
+| fixed512 | e5-base | bm25-lemma | 143 | 2536 | 0.465 [0.35, 0.58] | 0.303 [0.22, 0.39] | -0.184 [-0.32, -0.05] * | 0.514 | 0.3 | 0.5 | — | 0.3 | — | — |
+| fixed512 | e5-base | hybrid | 143 | 2537 | 0.688 [0.58, 0.78] | 0.494 [0.40, 0.59] | +0.038 [-0.09, +0.16] | 0.743 | 53.1 | 76.1 | 52.6 | 0.4 | 0.1 | — |
+| fixed512 | e5-base | hybrid+rerank | 143 | 2537 | 0.799 [0.71, 0.88] | 0.652 [0.56, 0.74] | +0.149 [+0.06, +0.25] * | 0.854 | 7374.4 | 15666.8 | 67.1 | 0.8 | 0.1 | 7263.5 |
+| fixed512-overlap128 | e5-base | dense | 191 | 2536 | 0.778 [0.68, 0.86] | 0.572 [0.48, 0.66] | +0.128 [+0.01, +0.25] * | 0.826 | 65.3 | 72.6 | 65.3 | — | — | — |
+| fixed512-overlap128 | e5-base | bm25-lemma | 191 | 2536 | 0.444 [0.33, 0.56] | 0.314 [0.23, 0.41] | -0.205 [-0.35, -0.06] * | 0.472 | 0.3 | 0.6 | — | 0.3 | — | — |
+| fixed512-overlap128 | e5-base | hybrid | 191 | 2536 | 0.701 [0.60, 0.80] | 0.554 [0.46, 0.65] | +0.052 [-0.08, +0.18] | 0.743 | 56.1 | 71.2 | 55.5 | 0.5 | 0.1 | — |
+| fixed512-overlap128 | e5-base | hybrid+rerank | 191 | 2536 | 0.819 [0.74, 0.90] | 0.655 [0.57, 0.75] | +0.170 [+0.06, +0.28] * | 0.854 | 7024.3 | 15202.1 | 65.0 | 0.7 | 0.1 | 6951.6 |
+| clause | e5-base | dense | 767 | 436 | 0.675 [0.58, 0.77] | 0.616 [0.52, 0.72] | +0.025 [-0.10, +0.15] | 0.788 | 60.9 | 76.0 | 60.9 | — | — | — |
+| clause | e5-base | bm25-lemma | 767 | 411 | 0.354 [0.25, 0.46] | 0.268 [0.18, 0.36] | -0.295 [-0.43, -0.16] * | 0.438 | 0.6 | 1.2 | — | 0.6 | — | — |
+| clause | e5-base | hybrid | 767 | 428 | 0.612 [0.51, 0.71] | 0.521 [0.42, 0.62] | -0.037 [-0.17, +0.10] | 0.705 | 59.1 | 73.7 | 58.2 | 0.9 | 0.1 | — |
+| clause | e5-base | hybrid+rerank | 767 | 449 | 0.727 [0.63, 0.82] | 0.683 [0.59, 0.78] | +0.078 [-0.05, +0.21] | 0.792 | 2376.0 | 3728.9 | 67.8 | 1.0 | 0.1 | 2306.4 |
+| article | e5-base | dense | 276 | 1210 | 0.736 [0.64, 0.83] | 0.612 [0.52, 0.71] | +0.087 [-0.03, +0.21] | 0.736 | 59.5 | 66.6 | 59.5 | — | — | — |
+| article | e5-base | bm25-lemma | 276 | 1450 | 0.451 [0.34, 0.56] | 0.333 [0.24, 0.43] | -0.198 [-0.34, -0.06] * | 0.451 | 0.3 | 0.6 | — | 0.3 | — | — |
+| article | e5-base | hybrid | 276 | 1394 | 0.688 [0.58, 0.79] | 0.526 [0.43, 0.63] | +0.038 [-0.10, +0.17] | 0.688 | 48.7 | 56.9 | 48.1 | 0.5 | 0.1 | — |
+| article | e5-base | hybrid+rerank | 276 | 1409 | 0.872 [0.80, 0.94] | 0.734 [0.65, 0.82] | +0.222 [+0.11, +0.34] * | 0.872 | 4938.7 | 5760.5 | 52.7 | 0.7 | 0.1 | 4868.2 |
+| clause+header | e5-base | dense | 767 | 584 | 0.748 [0.65, 0.84] | 0.656 [0.56, 0.75] | +0.098 [-0.02, +0.22] | 0.826 | 55.3 | 62.7 | 55.3 | — | — | — |
+| clause+header | e5-base | bm25-lemma | 767 | 509 | 0.361 [0.26, 0.47] | 0.280 [0.19, 0.38] | -0.288 [-0.42, -0.15] * | 0.438 | 0.6 | 1.2 | — | 0.6 | — | — |
+| clause+header | e5-base | hybrid | 767 | 528 | 0.686 [0.59, 0.78] | 0.561 [0.46, 0.66] | +0.037 [-0.09, +0.16] | 0.733 | 54.5 | 64.9 | 53.4 | 0.9 | 0.1 | — |
+| clause+header | e5-base | hybrid+rerank | 767 | 604 | 0.787 [0.70, 0.87] | 0.705 [0.62, 0.79] | +0.138 [+0.02, +0.26] * | 0.854 | 3053.5 | 3648.0 | 58.6 | 1.0 | 0.1 | 2996.1 |
+| fixed512 | e5-base | bm25-stem | 143 | 2536 | 0.451 [0.34, 0.56] | 0.364 [0.27, 0.46] | -0.198 [-0.34, -0.06] * | 0.500 | 0.2 | 0.3 | — | 0.2 | — | — |
+| fixed512 | e5-base | dense+rerank | 143 | 2537 | 0.851 [0.77, 0.92] | 0.677 [0.59, 0.76] | +0.201 [+0.10, +0.31] * | 0.885 | 6765.2 | 7208.2 | 56.3 | — | — | 6710.0 |
+| fixed512 | bge-m3 | dense | 143 | 2536 | 0.726 [0.63, 0.82] | 0.536 [0.45, 0.63] | +0.076 [-0.06, +0.21] | 0.795 | 130.3 | 148.0 | 130.3 | — | — | — |
 <!-- END retrieval_table -->
 
 How to read it:
@@ -164,6 +164,11 @@ How to read it:
 - `context tokens@5` is how much text the top-5 hands to the generator. Longer
   chunks cover more clauses, so recall can be bought with context size —
   compare chunking strategies only together with this column.
+- Brackets are 95% bootstrap intervals over questions. `Δ recall@5` is a
+  paired bootstrap against the baseline row on the same questions; only rows
+  marked `*` differ from the baseline beyond noise. With 72 questions, that is
+  true for the reranked rows, for overlapping windows, and (downwards) for BM25
+  alone; the other chunking and embedding differences are within noise.
 - Latency is per query, on CPU, after warm-up.
 - `bge-m3` and `e5-base` are compared on byte-identical chunks.
 
@@ -172,11 +177,21 @@ How to read it:
 Script: [`evals/answer_eval.py`](evals/answer_eval.py).
 
 <!-- BEGIN answer_table -->
-Cell: `clause+header/e5-base/hybrid+rerank`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 72 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1).
+Cell: `clause+header/e5-base/hybrid+rerank`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 72 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
 
 | answer_rate | citation_hit | citation_validity | withheld | correct_refusal | correctness | groundedness | n_judged | generation p50, s |
 |---|---|---|---|---|---|---|---|---|
-| 0.792 | 0.681 | 0.742 | 0.024 | 0.800 | 0.591 | 0.841 | 82 | 78.558 |
+| 0.792 [0.69, 0.88] | 0.681 [0.57, 0.79] | 0.742 | 0.024 | 0.800 [0.50, 1.00] | 0.591 [0.49, 0.68] | 0.841 [0.79, 0.90] | 82 | 78.558 |
+
+Correctness by question type:
+
+| type | n | correctness |
+|---|---|---|
+| condition | 22 | 0.477 [0.30, 0.66] |
+| fact | 12 | 0.583 [0.33, 0.83] |
+| multi | 21 | 0.500 [0.31, 0.69] |
+| number | 17 | 0.676 [0.50, 0.85] |
+| unanswerable | 10 | 0.900 [0.70, 1.00] |
 <!-- END answer_table -->
 
 - `citation_hit`: at least one cited clause is a required one.
