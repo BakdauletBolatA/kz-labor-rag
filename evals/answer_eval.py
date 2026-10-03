@@ -53,7 +53,7 @@ from kz_labor_rag.eval.answer_judge import (
 from kz_labor_rag.eval.citations import cite, is_refusal
 from kz_labor_rag.eval.dataset import QUESTION_TYPES, load_dataset
 from kz_labor_rag.eval.experiments import cell_config
-from kz_labor_rag.eval.factory import build_generator
+from kz_labor_rag.eval.factory import build_forced_generator, build_generator
 from kz_labor_rag.eval.judge import format_context
 from kz_labor_rag.eval.stats import bootstrap_ci, paired_difference
 
@@ -368,6 +368,7 @@ def latest_run(out: Path, backend: str, split: str = "dev") -> Path:
         if (
             payload.get("generator", {}).get("backend") == backend
             and payload.get("split", "dev") == split
+            and not payload.get("variant")
         ):
             runs.append(p)
     if not runs:
@@ -556,6 +557,76 @@ def cmd_compare(args) -> int:
     return 0
 
 
+def refused_above(records: list[dict], scores: dict[str, float], tau: float) -> list[str]:
+    """Отказы, у которых лучший фрагмент набрал не ниже порога.
+
+    Метка «есть ли ответ в кодексе» правилу неизвестна — как и в работающей
+    системе: решение принимается только по скору."""
+    return [
+        r["id"]
+        for r in records
+        if not r.get("error") and r["refused"] and scores.get(r["id"], 0.0) >= tau
+    ]
+
+
+def cmd_apply_force(args) -> int:
+    """Применить правило ForceAnswerGenerator к сохранённому прогону.
+
+    Ответы при температуре 0 детерминированы, поэтому заново спрашиваются только
+    отказы выше порога; остальные записи переносятся как есть. Результат —
+    прогон-вариант (``variant``), последним «прогоном сервиса» он не считается.
+    """
+    tau = float(args.apply_force)
+    out = Path(args.results_dir)
+    split = args.split or "dev"
+    latest = latest_run(out, args.generator or "ollama", split)
+    payload = json.loads(latest.read_text("utf-8"))
+    base, config, code, retriever, generator = setup(
+        payload["cell"].split("/"), args.generator, split
+    )
+    forced = build_forced_generator(config)
+    judge, _ = make_judge(base)
+    k = int(base.get("eval.k"))
+    questions = {q.id: q for q in load_dataset(base.path_of("eval.dataset")).in_split(split)}
+
+    refused = [r for r in payload["questions"] if not r.get("error") and r["refused"]]
+    scores = {r["id"]: retriever.search(questions[r["id"]].question, k)[0].score for r in refused}
+    targets = refused_above(payload["questions"], scores, tau)
+    changed = []
+    for i, record in enumerate(payload["questions"]):
+        if record["id"] not in targets:
+            continue
+        log.info("Повтор без отказа: %s (скор %.3f)", record["id"], scores[record["id"]])
+        new = answer(questions[record["id"]], retriever, forced, k)
+        if new["error"] or new["refused"]:
+            record["force_tried"] = True
+            continue
+        if judge is not None:
+            run_judge(judge, questions[record["id"]], code, new)
+        new.update(forced=True, answer_before=record["answer"], top_score=scores[record["id"]])
+        payload["questions"][i] = {key: v for key, v in new.items() if key != "_hits"}
+        changed.append(record["id"])
+
+    payload["variant"] = f"force@{tau}"
+    payload["force_answer_above"] = tau
+    payload["forced_from"] = latest.name
+    payload["generator"] = {
+        **payload["generator"],
+        "force_answer_above": str(tau),
+        "forced_prompt": forced.descriptor.get("prompt", ""),
+    }
+    payload["aggregates"] = aggregate(payload["questions"], seed=int(base.get("eval.seed")))
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = out / "answers" / f"{stamp}.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    print(
+        f"Порог {tau}: повторно спрошено {len(targets)}, отказ заменён ответом у {len(changed)}"
+        f" ({', '.join(changed) or '—'}).\nЗаписано: {path}\n"
+        f"Сравнить: --compare {latest} {path}"
+    )
+    return 0
+
+
 def cmd_prepare_labels(args) -> int:
     if LABELS.exists():
         print(f"{LABELS} уже есть — в нём может быть ваша разметка, не перезаписываю.")
@@ -740,6 +811,12 @@ def main() -> int:
     mode.add_argument("--agreement", action="store_true")
     mode.add_argument("--retry-failed", action="store_true")
     mode.add_argument(
+        "--apply-force",
+        type=float,
+        metavar="TAU",
+        help="повторить отказы со скором лучшего фрагмента не ниже TAU промптом без отказа",
+    )
+    mode.add_argument(
         "--rescore",
         nargs="?",
         const="latest",
@@ -759,6 +836,8 @@ def main() -> int:
         return cmd_agreement(args)
     if args.retry_failed:
         return cmd_retry_failed(args)
+    if args.apply_force is not None:
+        return cmd_apply_force(args)
     if args.rescore:
         return cmd_rescore(args)
     if args.compare:
