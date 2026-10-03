@@ -106,9 +106,7 @@ class TestCache:
         # Вектор считается от «префикс + текст». Если префикс не входит в ключ,
         # смена префикса вернёт векторы, посчитанные со старым, — правдоподобные
         # и неверные, причём молча.
-        cache(tmp_path, prefix="passage: ").put_many(
-            ["текст"], np.ones((1, 8), dtype=np.float32)
-        )
+        cache(tmp_path, prefix="passage: ").put_many(["текст"], np.ones((1, 8), dtype=np.float32))
         assert cache(tmp_path, prefix="документ: ").get_many(["текст"]) == {}
 
     def test_normalize_change_invalidates_cache(self, tmp_path):

@@ -76,9 +76,7 @@ class TestChunksFitTheModel:
         config = load_config()
         query_prefix = config.get("embeddings.query_prefix")
         longest = "Меня хотят уволить во время отпуска по уходу за ребёнком " * 3
-        assert (
-            encoded_length(built["tokenizer"], query_prefix, longest) <= built["limit"]
-        )
+        assert encoded_length(built["tokenizer"], query_prefix, longest) <= built["limit"]
 
     def test_the_check_can_actually_fail(self, built):
         """Страховка от теста, который проходит по недосмотру.
@@ -87,6 +85,4 @@ class TestChunksFitTheModel:
         слишком длинном тексте.
         """
         too_long = "слово " * 5000
-        assert (
-            encoded_length(built["tokenizer"], built["prefix"], too_long) > built["limit"]
-        )
+        assert encoded_length(built["tokenizer"], built["prefix"], too_long) > built["limit"]

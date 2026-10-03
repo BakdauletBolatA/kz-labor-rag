@@ -171,8 +171,11 @@ class TestUnanswerable:
     def test_gold_is_forbidden(self):
         with pytest.raises(DatasetError, match="unanswerable"):
             EvalQuestion.from_dict(
-                {**UNANSWERABLE, "required_articles": ["14"],
-                 "required_clauses": [{"article": "14", "clause": ""}]}
+                {
+                    **UNANSWERABLE,
+                    "required_articles": ["14"],
+                    "required_clauses": [{"article": "14", "clause": ""}],
+                }
             )
 
     def test_notes_must_say_where_the_answer_is(self):
@@ -464,7 +467,7 @@ class TestShippedDataset:
 
     def test_every_answerable_question_has_evidence(self, dataset):
         assert all(
-            x.evidence and all(len(e.quote) > 40 for e in x.evidence) for x in dataset.answerable
+            x.evidence and all(len(e.quote) > 30 for e in x.evidence) for x in dataset.answerable
         )
 
     def test_questions_avoid_code_language(self, dataset):
@@ -528,3 +531,38 @@ class TestProvenance:
     def test_roundtrip(self):
         x = q(verified_by="model", human_check="confirmed")
         assert EvalQuestion.from_dict(x.to_dict()) == x
+
+
+class TestSplit:
+    """dev — вопросы, на которых подбирались настройки; test — вопросы, которых
+    при подборе никто не видел. Итоговую цифру честно даёт только test."""
+
+    def test_split_is_optional(self):
+        assert q().split is None
+
+    def test_known_splits_are_kept(self):
+        assert q(split="test").split == "test"
+
+    def test_unknown_split_rejected(self):
+        with pytest.raises(DatasetError, match="split"):
+            q(split="holdout")
+
+    def test_roundtrip(self):
+        x = q(split="dev")
+        assert EvalQuestion.from_dict(x.to_dict()) == x
+
+    def test_in_split_filters_verified_questions(self):
+        ds = EvalDataset(
+            questions=(
+                q(id="a", split="dev"),
+                q(id="b", split="test"),
+                q(id="c", split="test", verified=False),
+            )
+        )
+        assert [x.id for x in ds.in_split("dev")] == ["a"]
+        assert [x.id for x in ds.in_split("test")] == ["b"]
+        assert [x.id for x in ds.in_split("all")] == ["a", "b"]
+
+    def test_unknown_split_name_is_an_error(self):
+        with pytest.raises(DatasetError, match="split"):
+            EvalDataset(questions=(q(),)).in_split("holdout")

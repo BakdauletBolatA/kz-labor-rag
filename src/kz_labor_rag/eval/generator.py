@@ -12,7 +12,7 @@ import os
 import re
 import urllib.request
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
 from kz_labor_rag.eval.citations import ground
@@ -89,6 +89,8 @@ class Generation:
     # Модель ответила без единой верной ссылки, и ответ заменён отказом.
     withheld: bool = False
     raw: str = ""
+    # Ответ получен повторным запросом с запретом отказа (ForceAnswerGenerator).
+    forced: bool = False
 
     @property
     def ok(self) -> bool:
@@ -371,6 +373,42 @@ class CloudGenerator:
             input_tokens=getattr(usage, "prompt_tokens", None),
             output_tokens=getattr(usage, "completion_tokens", None),
         )
+
+
+@dataclass
+class ForceAnswerGenerator:
+    """Если модель отказалась, а лучший фрагмент набрал высокий скор реранкера,
+    спрашивает ещё раз промптом, который запрещает отказ.
+
+    Скор лучшего фрагмента — признак, что поиск нашёл что-то по теме, и отказ
+    скорее перестраховка. Решение принимается по скору, а не по тому, есть ли в
+    кодексе ответ: система этого не знает. Если повторный ответ тоже отказ или
+    упал, остаётся исходный. Стриминга у обёртки нет: она отвечает целиком.
+    """
+
+    inner: Generator
+    forced: Generator
+    threshold: float
+
+    @property
+    def descriptor(self) -> dict[str, str]:
+        return {
+            **self.inner.descriptor,
+            "force_answer_above": str(self.threshold),
+            "forced_prompt": self.forced.descriptor.get("prompt", ""),
+        }
+
+    def should_force(self, out: Generation, context: Sequence[RetrievedChunk]) -> bool:
+        return bool(out.ok and out.refused and context and context[0].score >= self.threshold)
+
+    def generate(self, question: str, context: Sequence[RetrievedChunk]) -> Generation:
+        out = self.inner.generate(question, context)
+        if not self.should_force(out, context):
+            return out
+        second = self.forced.generate(question, context)
+        if not second.ok or second.refused:
+            return out
+        return replace(second, forced=True)
 
 
 @dataclass

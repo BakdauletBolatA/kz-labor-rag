@@ -53,7 +53,10 @@ def dataset_summary(dataset: EvalDataset) -> str:
         f"**{len(verified)} verified** — metrics are computed on these only: "
         f"{by_human} checked by hand, {by_model} by a model-assisted review pass. "
         f"Random spot check of the model-reviewed questions by hand: "
-        f"{confirmed} of {len(checked)} confirmed.",
+        f"{confirmed} of {len(checked)} confirmed. "
+        f"Verified questions by split: dev {len(dataset.in_split('dev'))}, "
+        f"test {len(dataset.in_split('test'))} (test questions were never used to choose "
+        "settings).",
         "",
         "| type | questions | verified |",
         "|---|---|---|",

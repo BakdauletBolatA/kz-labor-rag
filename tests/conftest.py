@@ -108,6 +108,7 @@ def config() -> Config:
                 "k": 5,
                 "languages": ["ru", "kk"],
                 "primary_language": "ru",
+                "split": "all",
             },
         }
     )
@@ -146,9 +147,7 @@ def _file_state() -> dict[str, str | None]:
     state: dict[str, str | None] = {}
     for name in PRODUCTION_FILES:
         path = Path(name)
-        state[name] = (
-            hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
-        )
+        state[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
     for name in PRODUCTION_DIRS:
         directory = Path(name)
         if not directory.is_dir():

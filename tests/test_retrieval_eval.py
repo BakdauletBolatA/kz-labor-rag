@@ -108,3 +108,88 @@ def test_table_shows_intervals_and_marks_significant_deltas():
     table = retrieval_eval.render([row], 5, {"n": 2, "real": 1, "synthetic": 1})
     assert "0.500 [0.40, 0.60]" in table
     assert "+0.100 [+0.02, +0.18] *" in table
+
+
+def test_merge_replaces_known_cells_and_appends_new_ones():
+    old_rows = [
+        {"chunking": "a", "embeddings": "e", "method": "dense", "mark": "old"},
+        {"chunking": "a", "embeddings": "e", "method": "hybrid", "mark": "old"},
+    ]
+    old_runs = {"a/e/dense": {"v": "old"}, "a/e/hybrid": {"v": "old"}}
+    new_rows = [
+        {"chunking": "a", "embeddings": "e", "method": "hybrid", "mark": "new"},
+        {"chunking": "a", "embeddings": "e", "method": "rerank", "mark": "new"},
+    ]
+    new_runs = {"a/e/hybrid": {"v": "new"}, "a/e/rerank": {"v": "new"}}
+    rows, runs = retrieval_eval.merge_runs(old_rows, old_runs, new_rows, new_runs)
+    assert [(r["method"], r["mark"]) for r in rows] == [
+        ("dense", "old"),
+        ("hybrid", "new"),
+        ("rerank", "new"),
+    ]
+    assert runs["a/e/hybrid"] == {"v": "new"} and runs["a/e/dense"] == {"v": "old"}
+
+
+def test_stored_runs_are_picked_by_split(tmp_path):
+    import json
+
+    folder = tmp_path / "retrieval"
+    folder.mkdir()
+    for name, payload in {
+        "20261001T000000Z.json": {"rows": []},  # прежний формат — dev
+        "20261002T000000Z_test.json": {"rows": [], "split": "test"},
+        "20261003T000000Z.json": {"rows": [], "split": "dev"},
+    }.items():
+        (folder / name).write_text(json.dumps(payload))
+    assert retrieval_eval.latest_stored(tmp_path, "dev").name == "20261003T000000Z.json"
+    assert retrieval_eval.latest_stored(tmp_path, "test").name == "20261002T000000Z_test.json"
+    assert retrieval_eval.stored_name("20261003T000000Z", "dev") == "20261003T000000Z.json"
+    assert retrieval_eval.stored_name("20261003T000000Z", "test") == "20261003T000000Z_test.json"
+    assert retrieval_eval.table_name("test") == "retrieval_table_test.md"
+    assert retrieval_eval.table_name("dev") == "retrieval_table.md"
+
+
+def test_refilter_drops_questions_that_are_no_longer_verified():
+    def run(items):
+        return {
+            "questions": [
+                {
+                    "id": i,
+                    "metrics": {
+                        "recall_at_k": r,
+                        "reciprocal_rank": rr,
+                        "strict_hit_at_k": r,
+                        "article_recall_at_k": r,
+                    },
+                }
+                for i, r, rr in items
+            ]
+        }
+
+    rows = [{"chunking": "a", "embeddings": "e", "method": "m", "n": 3, "recall@5": 0.5}]
+    runs = {"a/e/m": run([("q1", 1.0, 1.0), ("q2", 0.0, 0.0), ("bad", 0.5, 0.5)])}
+    retrieval_eval.refilter(rows, runs, keep={"q1", "q2"}, k=5)
+    assert rows[0]["n"] == 2 and rows[0]["recall@5"] == 0.5 and rows[0]["mrr"] == 0.5
+    assert [q["id"] for q in runs["a/e/m"]["questions"]] == ["q1", "q2"]
+
+
+def test_methods_without_rerank_switch_it_off_even_if_the_base_config_enables_it():
+    """Конфиг сервиса включает реранкер; ячейка «dense» или «hybrid» не должна его
+    наследовать — иначе baseline таблицы тихо превращается в dense+rerank."""
+    from kz_labor_rag.eval.experiments import CHUNKINGS, METHODS
+
+    base = load_config(apply_env=False)
+    base.data["retrieval"]["reranker"]["enabled"] = True
+    for name, overrides in METHODS.items():
+        config = derive(base, CHUNKINGS["fixed512"], overrides, version="v", table="t")
+        expected = "rerank" in name
+        assert config.get("retrieval.reranker.enabled") is expected, name
+
+
+def test_only_filter_is_exact_for_full_cell_names_and_a_substring_otherwise():
+    full = "fixed512/e5-base/dense"
+    assert retrieval_eval.matches(full, "fixed512/e5-base/dense")
+    assert not retrieval_eval.matches("fixed512/e5-base/dense+rerank", "fixed512/e5-base/dense")
+    assert retrieval_eval.matches("clause+header/e5-base/dense+rerank-k40", "k40")
+    assert retrieval_eval.matches(full, "k40,fixed512/e5-base/dense")
+    assert retrieval_eval.matches(full, None)

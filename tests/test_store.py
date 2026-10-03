@@ -230,9 +230,7 @@ class TestSchemaGuards:
 
     def test_existing_table_with_other_dimensions_is_rejected(self, store):
         other = PgVectorStore(
-            StoreParams(
-                dsn=DSN, table="chunks_test", distance="cosine", dimensions=DIM * 2
-            )
+            StoreParams(dsn=DSN, table="chunks_test", distance="cosine", dimensions=DIM * 2)
         )
         try:
             with pytest.raises(StoreError, match="уже существует с размерностью"):
