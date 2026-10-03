@@ -59,6 +59,7 @@ class TestOnlyVerifiedQuestionsAreCounted:
         assert result["aggregates"]["primary"]["n"] == 2
         assert [x["id"] for x in result["questions"]] == ["r1", "r2"]
         assert result["dataset"]["evaluated"] == {
+            "split": "all",
             "n": 2,
             "real": 1,
             "synthetic": 1,
@@ -368,3 +369,25 @@ class TestLatencyExcludesModelLoading:
         ds = EvalDataset(questions=(q("r1", question="в1"),))
         result = EvalRunner(config, self.SlowFirstCall({})).run(ds)
         assert result["questions"][0]["latency_ms"]["retrieval"] < 100
+
+
+class TestSplitSelection:
+    def dataset(self):
+        return EvalDataset(
+            questions=(
+                q("d1", question="в1", split="dev"),
+                q("t1", question="в2", split="test"),
+                q("t2", question="в3", split="test"),
+            )
+        )
+
+    def test_only_the_configured_split_is_scored(self, config):
+        config.data["eval"]["split"] = "test"
+        result = EvalRunner(config, FakeRetriever({})).run(self.dataset())
+        assert [x["id"] for x in result["questions"]] == ["t1", "t2"]
+        assert result["dataset"]["evaluated"]["split"] == "test"
+
+    def test_all_scores_everything_verified(self, config):
+        config.data["eval"]["split"] = "all"
+        result = EvalRunner(config, FakeRetriever({})).run(self.dataset())
+        assert len(result["questions"]) == 3

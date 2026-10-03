@@ -230,3 +230,31 @@ def test_latest_run_is_picked_per_generator(tmp_path):
         (answers / f"{stamp}.json").write_text(json.dumps({"generator": {"backend": backend}}))
     assert answer_eval.latest_run(tmp_path, "ollama").name == "20261001T000000Z.json"
     assert answer_eval.latest_run(tmp_path, "deepseek").name == "20261002T000000Z.json"
+
+
+def test_checkpoint_and_table_names_separate_generators_and_splits(tmp_path):
+    out = tmp_path
+    assert answer_eval.checkpoint_path(out, None, "dev").name == "partial.jsonl"
+    assert answer_eval.checkpoint_path(out, "deepseek", "dev").name == "partial-deepseek.jsonl"
+    assert answer_eval.checkpoint_path(out, None, "test").name == "partial-test.jsonl"
+    assert (
+        answer_eval.checkpoint_path(out, "deepseek", "test").name == "partial-deepseek-test.jsonl"
+    )
+    assert answer_eval.table_name("answer_table", "dev") == "answer_table.md"
+    assert answer_eval.table_name("answer_table", "test") == "answer_table_test.md"
+
+
+def test_latest_run_respects_the_split(tmp_path):
+    import json
+
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    runs = {
+        "20261001T000000Z": {"generator": {"backend": "ollama"}},  # прежний формат — это dev
+        "20261002T000000Z": {"generator": {"backend": "ollama"}, "split": "test"},
+        "20261003T000000Z": {"generator": {"backend": "ollama"}, "split": "dev"},
+    }
+    for stamp, payload in runs.items():
+        (answers / f"{stamp}.json").write_text(json.dumps(payload))
+    assert answer_eval.latest_run(tmp_path, "ollama", "dev").name == "20261003T000000Z.json"
+    assert answer_eval.latest_run(tmp_path, "ollama", "test").name == "20261002T000000Z.json"

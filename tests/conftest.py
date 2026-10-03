@@ -108,6 +108,7 @@ def config() -> Config:
                 "k": 5,
                 "languages": ["ru", "kk"],
                 "primary_language": "ru",
+                "split": "all",
             },
         }
     )

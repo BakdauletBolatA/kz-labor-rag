@@ -111,16 +111,33 @@ depend on the sample size and are meaningful now.
 ### Test set
 
 <!-- BEGIN dataset_summary -->
-86 questions in `evals/questions.jsonl`: 76 answerable, 10 unanswerable; 15 real user questions, 71 written for this set. **82 verified** — metrics are computed on these only: 3 checked by hand, 79 by a model-assisted review pass. Random spot check of the model-reviewed questions by hand: 13 of 15 confirmed.
+149 questions in `evals/questions.jsonl`: 119 answerable, 30 unanswerable; 15 real user questions, 134 written for this set. **145 verified** — metrics are computed on these only: 3 checked by hand, 142 by a model-assisted review pass. Random spot check of the model-reviewed questions by hand: 13 of 15 confirmed. Verified questions by split: dev 82, test 63 (test questions were never used to choose settings).
 
 | type | questions | verified |
 |---|---|---|
-| fact | 12 | 12 |
-| number | 18 | 17 |
-| condition | 23 | 22 |
-| multi | 23 | 21 |
-| unanswerable | 10 | 10 |
+| fact | 28 | 28 |
+| number | 30 | 29 |
+| condition | 33 | 32 |
+| multi | 28 | 26 |
+| unanswerable | 30 | 30 |
 <!-- END dataset_summary -->
+
+### Held-out test questions
+
+The 82 verified questions of the first version of the set (**dev**) were used to
+pick every setting in this README, so numbers on them are optimistic. 63
+questions added later (**test**: 43 with an answer, 20 without) were written
+after the settings were chosen and have never been used for tuning. Final
+numbers are therefore reported on test, once, for the configuration chosen on
+dev; the tables below are on dev unless marked otherwise.
+
+<!-- BEGIN retrieval_table_test -->
+_Not measured yet: run `python eval.py` (evals/results/retrieval_table_test.md)._
+<!-- END retrieval_table_test -->
+
+<!-- BEGIN answer_table_test -->
+_Not measured yet: run `python eval.py` (evals/results/answer_table_test.md)._
+<!-- END answer_table_test -->
 
 ### Retrieval: chunking × retrieval method
 

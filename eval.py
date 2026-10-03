@@ -35,6 +35,8 @@ TABLES = {
     "judge_agreement": RESULTS / "judge_agreement.md",
     "answer_comparison": RESULTS / "answer_comparison.md",
     "cloud_comparison": RESULTS / "cloud_comparison.md",
+    "retrieval_table_test": RESULTS / "retrieval_table_test.md",
+    "answer_table_test": RESULTS / "answer_table_test.md",
 }
 
 

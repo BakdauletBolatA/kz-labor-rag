@@ -49,6 +49,14 @@ def test_dataset_summary_counts_verified_separately():
     assert "**1 verified**" in text
     assert "1 checked by hand, 0 by a model-assisted review pass" in text
     assert "| condition | 2 | 1 |" in text
+    assert "dev 0, test 0" in text
+
+
+def test_summary_counts_the_splits():
+    ds = EvalDataset(
+        questions=(q(id="a", split="dev"), q(id="b", split="test"), q(id="c", split="test"))
+    )
+    assert "dev 1, test 2" in dataset_summary(ds)
 
 
 def test_empty_block_is_filled():

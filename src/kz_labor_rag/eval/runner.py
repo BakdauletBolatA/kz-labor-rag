@@ -242,12 +242,13 @@ class EvalRunner:
     def run(self, dataset: EvalDataset) -> dict[str, Any]:
         # Черновые слоты в прогон не идут: у них нет ни вопроса, ни эталона.
         # Непроверенные — тоже: их разметка может быть просто неверной.
-        verified = dataset.verified
+        split = self.config.get("eval.split")
+        verified = dataset.in_split(split)
         if not verified:
             raise NoVerifiedQuestionsError(
                 f"в датасете {dataset.path or ''} нет ни одного проверенного вопроса "
-                f"(готовых: {len(dataset.ready)}). Метрики считаются только по "
-                "вопросам с отметкой ревью."
+                f"в части '{split}' (готовых: {len(dataset.ready)}). Метрики считаются "
+                "только по вопросам с отметкой ревью."
             )
 
         # У вопросов без ответа в кодексе нет эталона поиска: метрики поиска
@@ -317,11 +318,12 @@ class EvalRunner:
                 "schema_version": dataset.schema_version,
                 "stats": dataset.stats,
                 "evaluated": {
+                    "split": split,
                     "n": len(scored),
                     "real": sum(1 for q in scored if q.origin == "real"),
                     "synthetic": sum(1 for q in scored if q.origin == "synthetic"),
                     "unanswerable": len(verified) - len(scored),
-                    "skipped_unverified": len(dataset.ready) - len(verified),
+                    "skipped_unverified": len(dataset.ready) - len(dataset.verified),
                 },
             },
             "components": {

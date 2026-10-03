@@ -26,9 +26,12 @@ Status = Literal["ready", "draft"]
 QUESTION_TYPES = ("fact", "number", "condition", "multi", "unanswerable")
 
 VERIFIERS = ("human", "model")
+# dev — на этих вопросах подбирались настройки; test — вопросы, которых при
+# подборе не видели: итоговую цифру честно даёт только он.
+SPLITS = ("dev", "test")
 HUMAN_CHECKS = ("confirmed", "rejected")
 
-DATASET_SCHEMA_VERSION = "4.1"
+DATASET_SCHEMA_VERSION = "4.2"
 
 
 class DatasetError(ValueError):
@@ -100,6 +103,7 @@ class EvalQuestion:
     verified: bool = False
     verified_by: str | None = None
     human_check: str | None = None
+    split: str | None = None
     notes: str = ""
     tags: tuple[str, ...] = ()
 
@@ -223,6 +227,10 @@ class EvalQuestion:
             if verified_by == "human":
                 fail("human_check — контроль проверки моделью; вопрос проверен человеком")
 
+        split = raw.get("split") or None
+        if split is not None and split not in SPLITS:
+            fail(f"split='{split}', допустимы: {', '.join(SPLITS)}")
+
         return cls(
             id=str(raw["id"]),
             question=str(raw.get("question") or "").strip(),
@@ -239,6 +247,7 @@ class EvalQuestion:
             verified=verified,
             verified_by=verified_by,
             human_check=human_check,
+            split=split,
             notes=str(raw.get("notes", "")),
             tags=tuple(raw.get("tags") or ()),
         )
@@ -272,6 +281,7 @@ class EvalQuestion:
             "verified": self.verified,
             "verified_by": self.verified_by,
             "human_check": self.human_check,
+            "split": self.split,
         }
         if self.notes:
             out["notes"] = self.notes
@@ -314,6 +324,14 @@ class EvalDataset:
     def verified(self) -> tuple[EvalQuestion, ...]:
         """Готовые вопросы, разметку которых проверил человек. Метрики — только по ним."""
         return tuple(q for q in self.ready if q.verified)
+
+    def in_split(self, name: str) -> tuple[EvalQuestion, ...]:
+        """Проверенные вопросы выбранной части: ``dev``, ``test`` или ``all``."""
+        if name == "all":
+            return self.verified
+        if name not in SPLITS:
+            raise DatasetError(f"split='{name}', допустимы: {', '.join((*SPLITS, 'all'))}")
+        return tuple(q for q in self.verified if q.split == name)
 
     @property
     def answerable(self) -> tuple[EvalQuestion, ...]:

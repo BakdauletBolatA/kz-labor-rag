@@ -128,3 +128,22 @@ def test_merge_replaces_known_cells_and_appends_new_ones():
         ("rerank", "new"),
     ]
     assert runs["a/e/hybrid"] == {"v": "new"} and runs["a/e/dense"] == {"v": "old"}
+
+
+def test_stored_runs_are_picked_by_split(tmp_path):
+    import json
+
+    folder = tmp_path / "retrieval"
+    folder.mkdir()
+    for name, payload in {
+        "20261001T000000Z.json": {"rows": []},  # прежний формат — dev
+        "20261002T000000Z_test.json": {"rows": [], "split": "test"},
+        "20261003T000000Z.json": {"rows": [], "split": "dev"},
+    }.items():
+        (folder / name).write_text(json.dumps(payload))
+    assert retrieval_eval.latest_stored(tmp_path, "dev").name == "20261003T000000Z.json"
+    assert retrieval_eval.latest_stored(tmp_path, "test").name == "20261002T000000Z_test.json"
+    assert retrieval_eval.stored_name("20261003T000000Z", "dev") == "20261003T000000Z.json"
+    assert retrieval_eval.stored_name("20261003T000000Z", "test") == "20261003T000000Z_test.json"
+    assert retrieval_eval.table_name("test") == "retrieval_table_test.md"
+    assert retrieval_eval.table_name("dev") == "retrieval_table.md"
