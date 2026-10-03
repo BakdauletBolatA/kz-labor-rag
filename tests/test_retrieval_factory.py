@@ -54,3 +54,27 @@ def test_bm25_uses_the_configured_analyzer():
 def test_unknown_implementation_rejected():
     with pytest.raises(ConfigError, match="implementation"):
         build_retriever(config_with(retrieval__implementation="magic"))
+
+
+class TestForceAnswerWiring:
+    def generation_config(self, threshold):
+        config = config_with()
+        config.data["generation"]["enabled"] = True
+        config.data["generation"]["force_answer_above"] = threshold
+        return config
+
+    def test_off_by_default(self):
+        from kz_labor_rag.eval.factory import build_generator
+        from kz_labor_rag.eval.generator import ForceAnswerGenerator
+
+        assert not isinstance(build_generator(config_with()), ForceAnswerGenerator)
+
+    def test_threshold_wraps_the_generator_with_the_forced_prompt(self):
+        from kz_labor_rag.eval.factory import build_generator
+        from kz_labor_rag.eval.generator import ForceAnswerGenerator
+
+        generator = build_generator(self.generation_config(0.28))
+        assert isinstance(generator, ForceAnswerGenerator)
+        assert generator.threshold == 0.28
+        assert generator.forced.descriptor["prompt"] == "answer_force_ru@v1"
+        assert generator.inner.descriptor["prompt"] != generator.forced.descriptor["prompt"]

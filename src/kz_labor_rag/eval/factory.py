@@ -17,6 +17,7 @@ from kz_labor_rag.eval.generator import (
     AnthropicGenerator,
     CloudGenerator,
     DisabledGenerator,
+    ForceAnswerGenerator,
     Generator,
     OllamaGenerator,
 )
@@ -39,7 +40,7 @@ def missing_key_env(provider: str) -> str | None:
     return None if os.environ.get(env_name) else env_name
 
 
-def build_generator(config: Config) -> Generator:
+def _build_base_generator(config: Config) -> Generator:
     if not config.get("generation.enabled"):
         return DisabledGenerator("генерация отключена в конфиге")
 
@@ -90,6 +91,26 @@ def build_generator(config: Config) -> Generator:
         max_tokens=int(config.get("generation.max_tokens")),
         temperature=float(config.get("generation.temperature")),
     )
+
+
+def build_generator(config: Config) -> Generator:
+    """Генератор по конфигу; с ``generation.force_answer_above`` — в обёртке, которая
+    повторяет запрос с запретом отказа, когда лучший фрагмент набрал высокий скор."""
+    inner = _build_base_generator(config)
+    threshold = config.get_or("generation.force_answer_above", None)
+    if threshold is None or isinstance(inner, DisabledGenerator):
+        return inner
+    return ForceAnswerGenerator(
+        inner=inner, forced=build_forced_generator(config), threshold=float(threshold)
+    )
+
+
+def build_forced_generator(config: Config) -> Generator:
+    """Тот же генератор, но с промптом, который запрещает отказ."""
+    data = {**config.data, "generation": {**config.data["generation"]}}
+    data["generation"]["prompt_id"] = config.get("generation.force_prompt_id")
+    data["generation"]["prompt_version"] = config.get("generation.force_prompt_version")
+    return _build_base_generator(Config(data=data, path=config.path, root=config.root))
 
 
 def build_judge(config: Config, *, generator: Generator | None = None) -> Judge:

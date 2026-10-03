@@ -125,6 +125,11 @@ generation:
   temperature: 0.0
   # Окно контекста модели: промпт плюс пять фрагментов по 512 токенов e5.
   num_ctx: 4096
+  # Если модель отказалась, а лучший фрагмент набрал скор реранкера не ниже
+  # порога, спросить ещё раз промптом, запрещающим отказ. null — выключено.
+  force_answer_above: null
+  force_prompt_id: answer_force_ru
+  force_prompt_version: v1
 
 judge:
   enabled: true
