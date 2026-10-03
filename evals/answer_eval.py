@@ -445,7 +445,13 @@ def cmd_rescore(args) -> int:
         else latest_run(out, args.generator or "ollama", args.split or "dev")
     )
     payload = json.loads(latest.read_text("utf-8"))
-    agg = aggregate(payload["questions"], seed=int(load_config().get("eval.seed")))
+    config = load_config()
+    keep = {
+        q.id
+        for q in load_dataset(config.path_of("eval.dataset")).in_split(payload.get("split", "dev"))
+    }
+    payload["questions"] = restrict(payload["questions"], keep)
+    agg = aggregate(payload["questions"], seed=int(config.get("eval.seed")))
     payload["aggregates"] = agg
     payload["rescored_from"] = latest.name
     judge = payload.get("judge") or {}
@@ -528,8 +534,13 @@ def cmd_compare(args) -> int:
     before_path, after_path = (Path(p) for p in args.compare)
     before = json.loads(before_path.read_text("utf-8"))
     after = json.loads(after_path.read_text("utf-8"))
+    config = load_config()
+    split = after.get("split", "dev")
+    keep = {q.id for q in load_dataset(config.path_of("eval.dataset")).in_split(split)}
     rows = compare_runs(
-        before["questions"], after["questions"], seed=int(load_config().get("eval.seed"))
+        restrict(before["questions"], keep),
+        restrict(after["questions"], keep),
+        seed=int(config.get("eval.seed")),
     )
     label = lambda run: (  # noqa: E731
         f"`{run['generator'].get('model')}` with `{run['generator'].get('prompt')}` ({run['cell']})"
@@ -555,6 +566,12 @@ def cmd_compare(args) -> int:
         "utf-8",
     )
     return 0
+
+
+def restrict(records: list[dict], keep: set[str]) -> list[dict]:
+    """Оставить ответы только на вопросы, проверенные сейчас: отклонённый после
+    прогона вопрос должен уйти из метрик без повторной генерации."""
+    return [r for r in records if r["id"] in keep]
 
 
 def refused_above(records: list[dict], scores: dict[str, float], tau: float) -> list[str]:

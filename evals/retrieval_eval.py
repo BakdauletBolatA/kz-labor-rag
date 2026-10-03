@@ -211,11 +211,34 @@ def merge_runs(old_rows, old_runs, new_rows, new_runs):
     return rows, {**old_runs, **new_runs}
 
 
+def refilter(rows: list[dict], runs: dict[str, dict], keep: set[str], k: int) -> None:
+    """Оставить в сохранённом прогоне только вопросы из ``keep`` и пересчитать метрики строк.
+
+    Нужен, когда после прогона вопрос отклонён при проверке: из метрик он должен
+    уйти, не заставляя пересчитывать поиск. Задержка и размер контекста остаются
+    от прогона — они от состава вопросов почти не зависят."""
+    for row in rows:
+        version = f"{row['chunking']}/{row['embeddings']}/{row['method']}"
+        run = runs[version]
+        run["questions"] = [q for q in run["questions"] if q["id"] in keep]
+        metrics = [q["metrics"] for q in run["questions"]]
+        row["n"] = len(metrics)
+        row[f"recall@{k}"] = statistics.fmean(m["recall_at_k"] for m in metrics)
+        row[f"strict_hit@{k}"] = statistics.fmean(m["strict_hit_at_k"] for m in metrics)
+        row["mrr"] = statistics.fmean(m["reciprocal_rank"] for m in metrics)
+        row[f"article_recall@{k}"] = statistics.fmean(m["article_recall_at_k"] for m in metrics)
+
+
 def rerender(source: Path, out_dir: Path, k: int, seed: int) -> int:
     """Таблица с интервалами из сохранённого прогона: строки и выдача по вопросам уже есть."""
     data = json.loads(source.read_text("utf-8"))
     split = data.get("split", "dev")
     rows, runs = data["rows"], data["runs"]
+    config = load_config()
+    keep = {q.id for q in load_dataset(config.path_of("eval.dataset")).in_split(split)}
+    refilter(rows, runs, keep, k)
+    for run in runs.values():
+        run["dataset"]["evaluated"]["n"] = len(run["questions"])
     add_intervals(rows, runs, seed=seed)
     source.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
     table = render(rows, k, next(iter(runs.values()))["dataset"]["evaluated"])

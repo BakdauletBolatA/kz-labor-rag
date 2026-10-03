@@ -169,9 +169,7 @@ class TestCli:
     def test_refuses_and_exits_nonzero(self, tmp_path, capsys):
         a, b = tmp_path / "a.json", tmp_path / "b.json"
         a.write_text(json.dumps(run("baseline-v0")), encoding="utf-8")
-        b.write_text(
-            json.dumps(run("iter-1", chunking_signature="другая")), encoding="utf-8"
-        )
+        b.write_text(json.dumps(run("iter-1", chunking_signature="другая")), encoding="utf-8")
         assert eval_main(["compare", str(a), str(b)]) == 1
         assert "несравнимы" in capsys.readouterr().err
 

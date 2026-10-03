@@ -282,3 +282,8 @@ def test_variant_runs_are_not_picked_as_the_latest_run(tmp_path):
         json.dumps({"generator": {"backend": "ollama"}, "variant": "force@0.3"})
     )
     assert answer_eval.latest_run(tmp_path, "ollama").name == "20261001T000000Z.json"
+
+
+def test_restrict_keeps_only_currently_verified_answers():
+    records = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
+    assert answer_eval.restrict(records, {"a", "c"}) == [{"id": "a"}, {"id": "c"}]

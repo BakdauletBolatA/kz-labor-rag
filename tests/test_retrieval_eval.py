@@ -147,3 +147,27 @@ def test_stored_runs_are_picked_by_split(tmp_path):
     assert retrieval_eval.stored_name("20261003T000000Z", "test") == "20261003T000000Z_test.json"
     assert retrieval_eval.table_name("test") == "retrieval_table_test.md"
     assert retrieval_eval.table_name("dev") == "retrieval_table.md"
+
+
+def test_refilter_drops_questions_that_are_no_longer_verified():
+    def run(items):
+        return {
+            "questions": [
+                {
+                    "id": i,
+                    "metrics": {
+                        "recall_at_k": r,
+                        "reciprocal_rank": rr,
+                        "strict_hit_at_k": r,
+                        "article_recall_at_k": r,
+                    },
+                }
+                for i, r, rr in items
+            ]
+        }
+
+    rows = [{"chunking": "a", "embeddings": "e", "method": "m", "n": 3, "recall@5": 0.5}]
+    runs = {"a/e/m": run([("q1", 1.0, 1.0), ("q2", 0.0, 0.0), ("bad", 0.5, 0.5)])}
+    retrieval_eval.refilter(rows, runs, keep={"q1", "q2"}, k=5)
+    assert rows[0]["n"] == 2 and rows[0]["recall@5"] == 0.5 and rows[0]["mrr"] == 0.5
+    assert [q["id"] for q in runs["a/e/m"]["questions"]] == ["q1", "q2"]
