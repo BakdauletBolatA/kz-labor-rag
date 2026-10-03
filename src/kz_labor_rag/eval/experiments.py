@@ -52,6 +52,17 @@ METHODS: dict[str, dict] = {
     "hybrid": {"retrieval.implementation": "hybrid"},
     "dense+rerank": {"retrieval.implementation": "dense", "retrieval.reranker.enabled": True},
     "hybrid+rerank": {"retrieval.implementation": "hybrid", "retrieval.reranker.enabled": True},
+    # Реранкеру отдаётся 40 кандидатов вместо 20: вдруг нужный пункт стоял ниже.
+    "dense+rerank-k40": {
+        "retrieval.implementation": "dense",
+        "retrieval.reranker.enabled": True,
+        "retrieval.reranker.candidate_k": 40,
+    },
+    "hybrid+rerank-k40": {
+        "retrieval.implementation": "hybrid",
+        "retrieval.reranker.enabled": True,
+        "retrieval.reranker.candidate_k": 40,
+    },
 }
 
 

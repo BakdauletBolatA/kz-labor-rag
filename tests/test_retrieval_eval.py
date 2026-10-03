@@ -108,3 +108,23 @@ def test_table_shows_intervals_and_marks_significant_deltas():
     table = retrieval_eval.render([row], 5, {"n": 2, "real": 1, "synthetic": 1})
     assert "0.500 [0.40, 0.60]" in table
     assert "+0.100 [+0.02, +0.18] *" in table
+
+
+def test_merge_replaces_known_cells_and_appends_new_ones():
+    old_rows = [
+        {"chunking": "a", "embeddings": "e", "method": "dense", "mark": "old"},
+        {"chunking": "a", "embeddings": "e", "method": "hybrid", "mark": "old"},
+    ]
+    old_runs = {"a/e/dense": {"v": "old"}, "a/e/hybrid": {"v": "old"}}
+    new_rows = [
+        {"chunking": "a", "embeddings": "e", "method": "hybrid", "mark": "new"},
+        {"chunking": "a", "embeddings": "e", "method": "rerank", "mark": "new"},
+    ]
+    new_runs = {"a/e/hybrid": {"v": "new"}, "a/e/rerank": {"v": "new"}}
+    rows, runs = retrieval_eval.merge_runs(old_rows, old_runs, new_rows, new_runs)
+    assert [(r["method"], r["mark"]) for r in rows] == [
+        ("dense", "old"),
+        ("hybrid", "new"),
+        ("rerank", "new"),
+    ]
+    assert runs["a/e/hybrid"] == {"v": "new"} and runs["a/e/dense"] == {"v": "old"}

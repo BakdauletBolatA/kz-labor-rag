@@ -48,6 +48,11 @@ CELLS: list[tuple[str, str, str]] = [(c, "e5-base", m) for c in CHUNKINGS for m 
     ("fixed512", "e5-base", "bm25-stem"),
     ("fixed512", "e5-base", "dense+rerank"),
     ("fixed512", "bge-m3", "dense"),
+    # Итерация «поиск»: вопросы, где поиск не находит ни одного нужного пункта.
+    ("clause+header", "e5-base", "dense+rerank"),
+    ("clause+header", "e5-base", "dense+rerank-k40"),
+    ("clause+header", "e5-base", "hybrid+rerank-k40"),
+    ("article", "e5-base", "dense+rerank"),
 ]
 
 
@@ -175,6 +180,17 @@ def render(rows: list[dict], k: int, n_info: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def merge_runs(old_rows, old_runs, new_rows, new_runs):
+    """Влить новые ячейки в сохранённый прогон: совпавшие заменяются, новые добавляются."""
+
+    def key(row):
+        return (row["chunking"], row["embeddings"], row["method"])
+
+    fresh = {key(r): r for r in new_rows}
+    rows = [fresh.pop(key(r), r) for r in old_rows] + list(fresh.values())
+    return rows, {**old_runs, **new_runs}
+
+
 def rerender(source: Path, out_dir: Path, k: int, seed: int) -> int:
     """Таблица с интервалами из сохранённого прогона: строки и выдача по вопросам уже есть."""
     data = json.loads(source.read_text("utf-8"))
@@ -197,6 +213,11 @@ def main() -> int:
         "--only", default=None, help="оставить ячейки, где «нарезка/модель/метод» содержит строку"
     )
     parser.add_argument("--results-dir", default="evals/results")
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="влить выбранные ячейки в последний сохранённый прогон, не пересчитывая остальные",
+    )
     parser.add_argument(
         "--from-json",
         metavar="PATH",
@@ -247,6 +268,11 @@ def main() -> int:
         print("Ни одной ячейки не выбрано.")
         return 1
 
+    if args.merge:
+        previous = sorted((Path(args.results_dir) / "retrieval").glob("2*.json"))[-1]
+        old = json.loads(previous.read_text("utf-8"))
+        rows, runs = merge_runs(old["rows"], old["runs"], rows, runs)
+        log.info("Влито в %s", previous.name)
     add_intervals(rows, runs, seed=seed)
     n_info = next(iter(runs.values()))["dataset"]["evaluated"]
     table = render(rows, k, n_info)
