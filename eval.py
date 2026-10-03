@@ -3,6 +3,7 @@
     python eval.py                  # retrieval table, answer quality, judge agreement
     python eval.py --skip-answers   # retrieval only (no generation, minutes instead of hours)
     python eval.py --readme-only    # just refresh README from the latest tables
+    python eval.py --test           # final run of the chosen configuration on test
 
 Steps:
 1. evals/retrieval_eval.py  -> evals/results/retrieval_table.md
@@ -38,6 +39,13 @@ TABLES = {
     "retrieval_table_test": RESULTS / "retrieval_table_test.md",
     "answer_table_test": RESULTS / "answer_table_test.md",
 }
+
+
+# Ячейки для test объявлены заранее, чтобы не подбирать их под контрольную часть:
+# baseline, конфигурация сервиса и лучшая по recall на dev альтернатива.
+TEST_RETRIEVAL_CELLS = (
+    "fixed512/e5-base/dense,clause+header/e5-base/hybrid+rerank,article/e5-base/hybrid+rerank"
+)
 
 
 def run(*args: str) -> None:
@@ -77,10 +85,20 @@ def main() -> int:
     )
     parser.add_argument("--skip-answers", action="store_true")
     parser.add_argument("--readme-only", action="store_true")
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="held-out test split: the baseline, the service configuration and the best dev "
+        "alternative for retrieval, then the service configuration's answers",
+    )
     args = parser.parse_args()
     load_env_file()
 
-    if not args.readme_only:
+    if args.test:
+        run("evals/retrieval_eval.py", "--split", "test", "--only", TEST_RETRIEVAL_CELLS)
+        if not args.skip_answers:
+            run("evals/answer_eval.py", "--split", "test")
+    elif not args.readme_only:
         run("evals/retrieval_eval.py")
         if not args.skip_answers:
             run("evals/answer_eval.py")

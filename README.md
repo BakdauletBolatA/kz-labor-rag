@@ -124,19 +124,52 @@ depend on the sample size and are meaningful now.
 
 ### Held-out test questions
 
-The 82 verified questions of the first version of the set (**dev**) were used to
-pick every setting in this README, so numbers on them are optimistic. 63
-questions added later (**test**: 43 with an answer, 20 without) were written
-after the settings were chosen and have never been used for tuning. Final
-numbers are therefore reported on test, once, for the configuration chosen on
-dev; the tables below are on dev unless marked otherwise.
+The questions of the first version of the set (**dev**, 81 verified after
+review) were used to pick every setting in this README, so numbers on them are
+optimistic. 63 questions added later (**test**: 43 with an answer, 20 without)
+were written after the settings were chosen and have never been used for
+tuning. Settings are tuned on dev; the configuration chosen there is run on
+test once. The tables below are on dev unless marked otherwise.
+
+**Test is easier than dev, so the two levels are not comparable.** The test
+questions were written by reading the clause they ask about, so their wording
+sits closer to the Code than the questions people actually ask (answer
+correctness 0.87 on test against 0.59 on dev; the same system, the same
+judge). What test is good for is checking that a difference seen on dev holds
+on questions nobody tuned on — not the absolute level, which on real questions
+is the dev number. Test also has no real user questions, only the 15 on dev.
 
 <!-- BEGIN retrieval_table_test -->
-_Not measured yet: run `python eval.py` (evals/results/retrieval_table_test.md)._
+Verified questions with a retrieval gold: n = 43 (real 0, synthetic 43). Latency is measured on CPU after warm-up. Intervals: bootstrap over questions (10,000 resamples); Δ: paired bootstrap against `fixed512/e5-base/dense`, `*` — the interval excludes zero.
+
+| chunking | embeddings | method | chunks | context tokens@5 | recall@5 [95% CI] | MRR [95% CI] | Δ recall@5 vs baseline | article_recall@5 | latency p50, ms | latency p95, ms | dense p50 | bm25 p50 | fusion p50 | rerank p50 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| fixed512 | e5-base | dense | 143 | 2536 | 0.837 [0.72, 0.93] | 0.698 [0.58, 0.81] | baseline | 0.872 | 49.4 | 53.7 | 49.4 | — | — | — |
+| article | e5-base | hybrid+rerank | 276 | 1265 | 0.965 [0.91, 1.00] | 0.912 [0.83, 0.98] | +0.128 [+0.05, +0.23] * | 0.965 | 4566.0 | 5615.0 | 60.7 | 0.6 | 0.1 | 4514.8 |
+| clause+header | e5-base | hybrid+rerank | 767 | 553 | 0.942 [0.87, 1.00] | 0.895 [0.81, 0.97] | +0.105 [-0.01, +0.23] | 0.953 | 2417.6 | 3684.2 | 55.9 | 0.9 | 0.1 | 2361.6 |
 <!-- END retrieval_table_test -->
 
+On test the direction of the retrieval result repeats: reranking again beats the
+baseline (service configuration +0.105 recall@5, `article` chunks +0.128), but
+with 43 questions only the second interval excludes zero — the sample is too
+small to separate the reranked variants from each other.
+
 <!-- BEGIN answer_table_test -->
-_Not measured yet: run `python eval.py` (evals/results/answer_table_test.md)._
+Cell: `clause+header/e5-base/hybrid+rerank`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 43 answerable, 20 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
+
+| answer_rate | citation_hit | citation_validity | withheld | correct_refusal | correctness | groundedness | n_judged | generation p50, s |
+|---|---|---|---|---|---|---|---|---|
+| 0.953 [0.88, 1.00] | 0.930 [0.84, 1.00] | 0.685 | 0.032 | 0.950 [0.85, 1.00] | 0.865 [0.79, 0.93] | 0.937 [0.88, 0.98] | 63 | 88.394 |
+
+Correctness by question type:
+
+| type | n | correctness |
+|---|---|---|
+| condition | 10 | 0.650 [0.40, 0.90] |
+| fact | 16 | 0.875 [0.72, 1.00] |
+| multi | 5 | 0.600 [0.50, 0.80] |
+| number | 12 | 0.917 [0.79, 1.00] |
+| unanswerable | 20 | 1.000 [1.00, 1.00] |
 <!-- END answer_table_test -->
 
 ### Retrieval: chunking × retrieval method
@@ -187,9 +220,12 @@ How to read it:
   compare chunking strategies only together with this column.
 - Brackets are 95% bootstrap intervals over questions. `Δ recall@5` is a
   paired bootstrap against the baseline row on the same questions; only rows
-  marked `*` differ from the baseline beyond noise. With 72 questions, that is
+  marked `*` differ from the baseline beyond noise. With about 70 questions that is
   true for the reranked rows, for overlapping windows, and (downwards) for BM25
-  alone; the other chunking and embedding differences are within noise.
+  alone; the other chunking and embedding differences are within noise. Among
+  the reranked clause-chunk rows (`dense`, `hybrid`, 20 or 40 candidates) there
+  is no significant difference either: retrieval parameters are exhausted at
+  this sample size.
 - Latency is per query, on CPU, after warm-up.
 - `bge-m3` and `e5-base` are compared on byte-identical chunks.
 
@@ -198,20 +234,20 @@ How to read it:
 Script: [`evals/answer_eval.py`](evals/answer_eval.py).
 
 <!-- BEGIN answer_table -->
-Cell: `clause+header/e5-base/hybrid+rerank`, generator: `deepseek-v4-pro` (answer_ru@v2). Verified questions: 72 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
+Cell: `clause+header/e5-base/hybrid+rerank`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 71 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
 
 | answer_rate | citation_hit | citation_validity | withheld | correct_refusal | correctness | groundedness | n_judged | generation p50, s |
 |---|---|---|---|---|---|---|---|---|
-| 0.722 [0.61, 0.82] | 0.681 [0.57, 0.78] | 1.000 | 0.171 | 0.900 [0.70, 1.00] | 0.640 [0.54, 0.74] | 0.945 [0.91, 0.98] | 82 | 7.747 |
+| 0.789 [0.69, 0.87] | 0.676 [0.56, 0.77] | 0.739 | 0.025 | 0.800 [0.50, 1.00] | 0.586 [0.49, 0.68] | 0.840 [0.78, 0.90] | 81 | 79.890 |
 
 Correctness by question type:
 
 | type | n | correctness |
 |---|---|---|
-| condition | 22 | 0.500 [0.32, 0.73] |
-| fact | 12 | 0.750 [0.50, 1.00] |
-| multi | 21 | 0.476 [0.31, 0.64] |
-| number | 17 | 0.794 [0.59, 0.94] |
+| condition | 21 | 0.452 [0.26, 0.64] |
+| fact | 12 | 0.583 [0.33, 0.83] |
+| multi | 21 | 0.500 [0.31, 0.69] |
+| number | 17 | 0.676 [0.50, 0.85] |
 | unanswerable | 10 | 0.900 [0.70, 1.00] |
 <!-- END answer_table -->
 
@@ -383,10 +419,34 @@ generation, which takes minutes per answer on CPU in Docker (`generation p50`
 in the answer table). The service now runs hybrid search with reranking; on a
 Mac, native Ollama is the practical option for generation.
 
-**Next steps:** label the rest of the answers so the judge agreement means
-something; a prompt that tells the model to cite clause numbers only from the
-fragment labels, measured as its own iteration; dense + rerank on clause chunks,
-which the table does not cover yet.
+**Refusing by a low reranker score hurts.** The idea: let code decide to refuse
+when the best fragment scores low. Replaying the saved answers (no new
+generation) at every threshold lowered correctness from 0.59 to 0.45–0.58, and
+barely raised correct refusals (0.80 to 0.90). The top score separates
+"retrieval missed" from "model refused anyway" well, but not "the Code has no
+answer": unanswerable questions got top scores up to 0.87 because they share
+vocabulary with real clauses.
+
+**Forcing an answer when the score is high helps a little, not enough to ship.**
+The opposite rule — if the model refuses while the best fragment scores above
+0.28, ask again with a prompt that forbids refusing — rescued all 5 false
+refusals on dev and 2 of 3 on test, and broke no honest refusal on dev (one on
+test). Correctness on answerable questions rose by +0.02 on dev and +0.05 on
+test, both with intervals touching zero; groundedness fell slightly on dev. The
+threshold was chosen on dev by the rule "do not hurt honest refusals", then run
+on test once. It stays off by default (`generation.force_answer_above`).
+
+**The easy-to-measure improvements ran out; the hard ones are left.** Of the 32
+points lost on dev, the retrieval misses (about 10) need a different kind of
+change — rewriting the colloquial question into legal wording, a better
+embedding model or fine-tuning — not another parameter; and 14 are wrong
+answers with the right clause in front of a 7B model.
+
+**Next steps:** label more answers so the judge agreement means something and
+add real questions (only 15 so far); query rewriting for retrieval misses; a
+prompt that takes clause numbers only from the fragment labels (sub-item 8 is
+read as clause 8 and a right answer is withheld); a larger local model on a
+native Ollama.
 
 ## Recording a one-minute demo
 
