@@ -177,20 +177,20 @@ How to read it:
 Script: [`evals/answer_eval.py`](evals/answer_eval.py).
 
 <!-- BEGIN answer_table -->
-Cell: `clause+header/e5-base/hybrid+rerank`, generator: `qwen2.5:7b-instruct` (answer_ru@v2). Verified questions: 72 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
+Cell: `clause+header/e5-base/hybrid+rerank`, generator: `deepseek-v4-pro` (answer_ru@v2). Verified questions: 72 answerable, 10 unanswerable. Judge: `gpt-5` (answer_judge_ru@v1). Intervals: 95% bootstrap over questions.
 
 | answer_rate | citation_hit | citation_validity | withheld | correct_refusal | correctness | groundedness | n_judged | generation p50, s |
 |---|---|---|---|---|---|---|---|---|
-| 0.792 [0.69, 0.88] | 0.681 [0.57, 0.79] | 0.742 | 0.024 | 0.800 [0.50, 1.00] | 0.591 [0.49, 0.68] | 0.841 [0.79, 0.90] | 82 | 78.558 |
+| 0.722 [0.61, 0.82] | 0.681 [0.57, 0.78] | 1.000 | 0.171 | 0.900 [0.70, 1.00] | 0.640 [0.54, 0.74] | 0.945 [0.91, 0.98] | 82 | 7.747 |
 
 Correctness by question type:
 
 | type | n | correctness |
 |---|---|---|
-| condition | 22 | 0.477 [0.30, 0.66] |
-| fact | 12 | 0.583 [0.33, 0.83] |
-| multi | 21 | 0.500 [0.31, 0.69] |
-| number | 17 | 0.676 [0.50, 0.85] |
+| condition | 22 | 0.500 [0.32, 0.73] |
+| fact | 12 | 0.750 [0.50, 1.00] |
+| multi | 21 | 0.476 [0.31, 0.64] |
+| number | 17 | 0.794 [0.59, 0.94] |
 | unanswerable | 10 | 0.900 [0.70, 1.00] |
 <!-- END answer_table -->
 
@@ -202,6 +202,32 @@ Correctness by question type:
 - `correctness` (against the required clauses) and `groundedness` (against the
   shown fragments) come from an LLM judge of a different vendor than the
   generator; they are `—` until a judge key is configured.
+
+### Local vs cloud generator
+
+The same questions, retrieved context, prompt and citation check, answered by
+the local `qwen2.5:7b-instruct` and by `deepseek-v4-pro` through its API
+(`python evals/answer_eval.py --generator deepseek`), compared with
+`--compare`:
+
+<!-- BEGIN cloud_comparison -->
+Paired comparison on the same questions: `qwen2.5:7b-instruct` with `answer_ru@v2` (clause+header/e5-base/hybrid+rerank) → `deepseek-v4-pro` with `answer_ru@v2` (clause+header/e5-base/hybrid+rerank). Δ is after minus before, 95% paired bootstrap; `*` — the interval excludes zero.
+
+| metric | n | before | after | Δ [95% CI] |
+|---|---|---|---|---|
+| correctness (answerable) | 72 | 0.549 | 0.604 | +0.056 [-0.06, +0.18] |
+| groundedness | 82 | 0.841 | 0.945 | +0.104 [+0.04, +0.16] * |
+| answer_rate | 72 | 0.792 | 0.722 | -0.069 [-0.18, +0.04] |
+| citation_hit | 72 | 0.681 | 0.681 | +0.000 [-0.11, +0.11] |
+| correct_refusal | 10 | 0.800 | 0.900 | +0.100 [+0.00, +0.30] |
+<!-- END cloud_comparison -->
+
+The cloud model writes better-grounded answers and is about ten times faster
+(`generation p50` in the run files), but its gain in correctness is within
+noise and `citation_hit` does not move at all: with the same retrieved context,
+a much stronger model does not find the required clause more often. On this set
+retrieval, not the generator, is the ceiling. The service keeps the local model
+by default — no key, no data leaving the machine.
 
 ### Can the judge be trusted?
 
@@ -297,6 +323,27 @@ clause about strikes. Only the judge can catch that.
 cites a sub-item (`8)` of clause 1) as if it were clause 8; the check then
 withholds an answer that was right. Refusals also came paraphrased ("ответа на
 этот вопрос нет") and with a sources line, and were briefly counted as answers.
+
+**A prompt change that was supposed to fix false refusals made them worse.**
+On the v2 run, 8 answerable questions were refused although every required
+clause was in the context. Prompt v3 changed one rule — refuse only when
+nothing in the fragments is relevant — and was measured on the same questions
+with the same retrieved context. It fixed 2 of those refusals and created 7 new
+ones, 5 of them with the answer in the context; a longer, more prominent
+refusal rule seems to push a 7B model towards refusing. The service stays on
+v2, and the comparison is kept (`python evals/answer_eval.py --compare`):
+
+<!-- BEGIN answer_comparison -->
+Paired comparison on the same questions: `qwen2.5:7b-instruct` with `answer_ru@v2` (clause+header/e5-base/hybrid+rerank) → `qwen2.5:7b-instruct` with `answer_ru@v3` (clause+header/e5-base/hybrid+rerank). Δ is after minus before, 95% paired bootstrap; `*` — the interval excludes zero.
+
+| metric | n | before | after | Δ [95% CI] |
+|---|---|---|---|---|
+| correctness (answerable) | 72 | 0.549 | 0.458 | -0.090 [-0.18, +0.00] |
+| groundedness | 82 | 0.841 | 0.841 | +0.000 [-0.07, +0.07] |
+| answer_rate | 72 | 0.792 | 0.736 | -0.056 [-0.14, +0.03] |
+| citation_hit | 72 | 0.681 | 0.611 | -0.069 [-0.15, +0.01] |
+| correct_refusal | 10 | 0.800 | 0.900 | +0.100 [+0.00, +0.30] |
+<!-- END answer_comparison -->
 
 **The judge needed checking too.** On the 20 hand-labelled answers the judge
 agreed on correctness almost perfectly but marked honest refusals as

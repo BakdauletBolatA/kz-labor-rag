@@ -6,6 +6,7 @@
     python evals/answer_eval.py --agreement         # согласие судьи с разметкой
     python evals/answer_eval.py --retry-failed      # переспросить упавшие вопросы
     python evals/answer_eval.py --rescore           # пересчитать таблицу без вызовов
+    python evals/answer_eval.py --compare A.json B.json  # парное сравнение двух прогонов
 
 Поиск и генерация берутся из одной ячейки сравнительной таблицы (по умолчанию
 нарезка по пунктам с заголовком статьи, гибридный поиск и реранкинг —
@@ -35,6 +36,7 @@ import logging
 import random
 import statistics
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -53,7 +55,7 @@ from kz_labor_rag.eval.dataset import QUESTION_TYPES, load_dataset
 from kz_labor_rag.eval.experiments import cell_config
 from kz_labor_rag.eval.factory import build_generator
 from kz_labor_rag.eval.judge import format_context
-from kz_labor_rag.eval.stats import bootstrap_ci
+from kz_labor_rag.eval.stats import bootstrap_ci, paired_difference
 
 log = logging.getLogger("answer_eval")
 
@@ -209,10 +211,14 @@ def render(cell: str, agg: dict, generator: dict, judge_note: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def setup(cell):
+def setup(cell, generator_name: str | None = None):
     base = load_config()
     config = cell_config(base, *cell)
     config.data["generation"]["enabled"] = True
+    if generator_name:
+        # Облачная модель для сравнения: меняется только генератор, промпт тот же.
+        alternative = base.get(f"generation_alternatives.{generator_name}")
+        config.data["generation"].update(alternative, name=generator_name)
     code = parse_file(base.path_of("corpus.raw_html"))
     retriever = build_retriever(config)
     retriever.warmup()
@@ -270,7 +276,10 @@ class Checkpoint:
 
 
 def cmd_run(args) -> int:
-    base, config, code, retriever, generator = setup(args.cell)
+    base, config, code, retriever, generator = setup(args.cell, args.generator)
+    if generator.descriptor.get("backend") == "disabled":
+        print(f"Генератор недоступен: {generator.descriptor.get('reason')}")
+        return 1
     dataset = load_dataset(base.path_of("eval.dataset"))
     questions = list(dataset.verified)
     judge, judge_reason = make_judge(base)
@@ -278,7 +287,11 @@ def cmd_run(args) -> int:
 
     dataset_sha = hashlib.sha256(Path(dataset.path).read_bytes()).hexdigest()
     checkpoint = Checkpoint(
-        Path(args.results_dir) / "answers" / "partial.jsonl",
+        # Свой файл на каждый генератор: параллельный прогон другой модели
+        # не должен начинать заново чужой незавершённый прогон.
+        Path(args.results_dir)
+        / "answers"
+        / ("partial.jsonl" if not args.generator else f"partial-{args.generator}.jsonl"),
         key={
             "cell": "/".join(args.cell),
             "generator": generator.descriptor,
@@ -331,6 +344,18 @@ def cmd_run(args) -> int:
     return 0
 
 
+def latest_run(out: Path, backend: str) -> Path:
+    """Последний полный прогон этого генератора: прогоны разных моделей лежат рядом."""
+    runs = [
+        p
+        for p in sorted((out / "answers").glob("2*.json"))
+        if json.loads(p.read_text("utf-8")).get("generator", {}).get("backend") == backend
+    ]
+    if not runs:
+        raise SystemExit(f"Нет прогонов генератора {backend} в {out / 'answers'}")
+    return runs[-1]
+
+
 def needs_retry(records: list[dict], *, judge_on: bool) -> list[str]:
     """Вопросы, где упала генерация или (если судья есть) нет его оценки."""
     return [
@@ -343,9 +368,10 @@ def needs_retry(records: list[dict], *, judge_on: bool) -> list[str]:
 def cmd_retry_failed(args) -> int:
     """Переспросить только упавшие вопросы последнего прогона и пересчитать таблицу."""
     out = Path(args.results_dir)
-    latest = sorted((out / "answers").glob("2*.json"))[-1]
+    backend = args.generator or "ollama"
+    latest = latest_run(out, backend)
     payload = json.loads(latest.read_text("utf-8"))
-    base, config, code, retriever, generator = setup(payload["cell"].split("/"))
+    base, config, code, retriever, generator = setup(payload["cell"].split("/"), args.generator)
     judge, _ = make_judge(base)
     retry = needs_retry(payload["questions"], judge_on=judge is not None)
     if not retry:
@@ -388,7 +414,13 @@ def cmd_rescore(args) -> int:
     обращений к судье.
     """
     out = Path(args.results_dir)
-    latest = sorted((out / "answers").glob("2*.json"))[-1]
+    # Явный путь — когда в таблицу должен попасть не последний прогон, а тот,
+    # на котором работает сервис (например, после отката неудачной итерации).
+    latest = (
+        Path(args.rescore)
+        if args.rescore != "latest"
+        else latest_run(out, args.generator or "ollama")
+    )
     payload = json.loads(latest.read_text("utf-8"))
     agg = aggregate(payload["questions"], seed=int(load_config().get("eval.seed")))
     payload["aggregates"] = agg
@@ -407,6 +439,98 @@ def cmd_rescore(args) -> int:
         f"<!-- generated by evals/answer_eval.py from {path.name} -->\n{table}", "utf-8"
     )
     print("\n" + table + f"\nЗаписано: {path} (пересчитано из {latest.name})")
+    return 0
+
+
+def compare_runs(before: list[dict], after: list[dict], *, seed: int) -> list[dict]:
+    """Парные разницы «после минус до» по вопросам, которые есть в обоих прогонах.
+
+    correct_refusal считается отдельно по вопросам без ответа: изменение,
+    которое снижает число ложных отказов, легко заодно ломает честные.
+    """
+    a = {r["id"]: r for r in before if not r.get("error")}
+    b = {r["id"]: r for r in after if not r.get("error")}
+    ids = sorted(set(a) & set(b))
+    judged = [
+        i
+        for i in ids
+        if (a[i].get("judge") or {}).get("correctness")
+        and (b[i].get("judge") or {}).get("correctness")
+    ]
+
+    def ground(r) -> float:
+        verdict = groundedness_of(r.get("answer", ""), r["refused"], r["judge"]["groundedness"])
+        return GROUNDEDNESS[verdict]
+
+    metrics = {
+        "correctness (answerable)": (
+            [i for i in judged if not a[i]["unanswerable"]],
+            lambda r: CORRECTNESS[r["judge"]["correctness"]],
+        ),
+        "groundedness": (judged, ground),
+        "answer_rate": (
+            [i for i in ids if not a[i]["unanswerable"]],
+            lambda r: float(not r["refused"]),
+        ),
+        "citation_hit": (
+            [i for i in ids if not a[i]["unanswerable"]],
+            lambda r: float(r["citation_hit"]),
+        ),
+        "correct_refusal": (
+            [i for i in ids if a[i]["unanswerable"]],
+            lambda r: float(r["refused"]),
+        ),
+    }
+    rows = []
+    for name, (subset, score) in metrics.items():
+        if not subset:
+            continue
+        diff = paired_difference(
+            [score(a[i]) for i in subset], [score(b[i]) for i in subset], seed=seed
+        )
+        rows.append(
+            {
+                "name": name,
+                "n": len(subset),
+                "before": mean(score(a[i]) for i in subset),
+                "after": mean(score(b[i]) for i in subset),
+                **asdict(diff),
+                "significant": diff.significant,
+            }
+        )
+    return rows
+
+
+def cmd_compare(args) -> int:
+    before_path, after_path = (Path(p) for p in args.compare)
+    before = json.loads(before_path.read_text("utf-8"))
+    after = json.loads(after_path.read_text("utf-8"))
+    rows = compare_runs(
+        before["questions"], after["questions"], seed=int(load_config().get("eval.seed"))
+    )
+    label = lambda run: (  # noqa: E731
+        f"`{run['generator'].get('model')}` with `{run['generator'].get('prompt')}` ({run['cell']})"
+    )
+    lines = [
+        f"Paired comparison on the same questions: {label(before)} → {label(after)}. "
+        "Δ is after minus before, 95% paired bootstrap; `*` — the interval excludes zero.",
+        "",
+        "| metric | n | before | after | Δ [95% CI] |",
+        "|---|---|---|---|---|",
+    ]
+    for r in rows:
+        mark = " *" if r["significant"] else ""
+        lines.append(
+            f"| {r['name']} | {r['n']} | {r['before']:.3f} | {r['after']:.3f} | "
+            f"{r['mean']:+.3f} [{r['low']:+.2f}, {r['high']:+.2f}]{mark} |"
+        )
+    table = "\n".join(lines) + "\n"
+    print(table)
+    Path(args.results_dir, args.compare_out).write_text(
+        "<!-- generated by evals/answer_eval.py --compare "
+        f"{before_path.name} {after_path.name} -->\n" + table,
+        "utf-8",
+    )
     return 0
 
 
@@ -571,12 +695,30 @@ def main() -> int:
         "--cell", nargs=3, default=list(DEFAULT_CELL), metavar=("CHUNKING", "EMBEDDINGS", "METHOD")
     )
     parser.add_argument("--results-dir", default="evals/results")
+    parser.add_argument(
+        "--compare-out",
+        default="answer_comparison.md",
+        help="куда записать таблицу --compare (в каталоге результатов)",
+    )
+    parser.add_argument(
+        "--generator",
+        default=None,
+        metavar="NAME",
+        help="облачная модель из generation_alternatives вместо локальной",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--prepare-labels", type=int, metavar="N")
     mode.add_argument("--label", action="store_true")
     mode.add_argument("--agreement", action="store_true")
     mode.add_argument("--retry-failed", action="store_true")
-    mode.add_argument("--rescore", action="store_true")
+    mode.add_argument(
+        "--rescore",
+        nargs="?",
+        const="latest",
+        metavar="RUN.json",
+        help="пересчитать таблицу из сохранённого прогона (по умолчанию — последнего)",
+    )
+    mode.add_argument("--compare", nargs=2, metavar=("BEFORE.json", "AFTER.json"))
     args = parser.parse_args()
     load_env_file()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -591,6 +733,8 @@ def main() -> int:
         return cmd_retry_failed(args)
     if args.rescore:
         return cmd_rescore(args)
+    if args.compare:
+        return cmd_compare(args)
     return cmd_run(args)
 
 

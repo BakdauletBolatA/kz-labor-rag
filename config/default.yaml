@@ -135,6 +135,25 @@ judge:
   max_tokens: 1024
   temperature: 0.0
 
+# Облачные модели для сравнения с локальной (evals/answer_eval.py --generator
+# NAME). Тот же промпт и та же проверка ссылок; ключ — в переменной api_key_env.
+# Сервис по умолчанию работает на локальной модели из секции generation.
+generation_alternatives:
+  deepseek:
+    provider: cloud
+    model: deepseek-v4-pro
+    # Модель рассуждает перед ответом: 512 токенов обрезали бы длинные ответы.
+    max_tokens: 4096
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+  grok:
+    provider: cloud
+    model: grok-4
+    # Модель рассуждает перед ответом: 512 токенов обрезали бы длинные ответы.
+    max_tokens: 4096
+    base_url: https://api.x.ai/v1
+    api_key_env: XAI_API_KEY
+
 # Судья ответов в evals/answer_eval.py: правильность по эталонным пунктам и
 # обоснованность по показанным фрагментам. Другой вендор, чем генератор, и
 # заметно сильнее его. provider: openai (OPENAI_API_KEY) | anthropic

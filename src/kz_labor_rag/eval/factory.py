@@ -15,6 +15,7 @@ import os
 from kz_labor_rag.config import Config
 from kz_labor_rag.eval.generator import (
     AnthropicGenerator,
+    CloudGenerator,
     DisabledGenerator,
     Generator,
     OllamaGenerator,
@@ -43,6 +44,20 @@ def build_generator(config: Config) -> Generator:
         return DisabledGenerator("генерация отключена в конфиге")
 
     provider = config.get("generation.provider")
+    if provider == "cloud":
+        env_name = config.get("generation.api_key_env")
+        if not os.environ.get(env_name):
+            return DisabledGenerator(f"{env_name} не задан")
+        return CloudGenerator(
+            model=config.get("generation.model"),
+            base_url=config.get("generation.base_url"),
+            api_key_env=env_name,
+            backend=config.get_or("generation.name", "cloud"),
+            prompt_id=config.get("generation.prompt_id"),
+            prompt_version=config.get("generation.prompt_version"),
+            max_tokens=int(config.get("generation.max_tokens")),
+            temperature=float(config.get("generation.temperature")),
+        )
     if provider == "ollama":
         return OllamaGenerator(
             model=config.get("generation.model"),

@@ -43,4 +43,4 @@ htmlcov/
 *.swp
 
 # незавершённый прогон evals/answer_eval.py
-evals/results/answers/partial.jsonl
+evals/results/answers/partial*.jsonl

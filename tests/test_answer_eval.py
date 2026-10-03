@@ -195,3 +195,38 @@ def test_aggregate_reports_intervals_and_correctness_by_type():
     table = answer_eval.render("cell", agg, {"model": "m", "prompt": "p"}, "note")
     assert "0.500 [" in table
     assert "| multi | 10 | 0.000" in table
+
+
+def test_compare_pairs_questions_and_reports_the_refusal_tradeoff():
+    def rec(qid, correctness, refused=False, unanswerable=False):
+        return {
+            **record(
+                unanswerable=unanswerable,
+                refused=refused,
+                judge={"correctness": correctness, "groundedness": "grounded"},
+            ),
+            "id": qid,
+            "type": "fact",
+            "answer": "x",
+        }
+
+    before = [rec(f"a{i}", "incorrect", refused=True) for i in range(20)]
+    before += [rec(f"u{i}", "correct", refused=True, unanswerable=True) for i in range(5)]
+    after = [rec(f"a{i}", "correct") for i in range(20)]
+    after += [rec(f"u{i}", "incorrect", unanswerable=True) for i in range(5)]
+    rows = {r["name"]: r for r in answer_eval.compare_runs(before, after, seed=1)}
+    assert rows["correctness (answerable)"]["mean"] == 1.0
+    assert rows["answer_rate"]["mean"] == 1.0
+    assert rows["correct_refusal"]["mean"] == -1.0
+    assert rows["correct_refusal"]["n"] == 5
+
+
+def test_latest_run_is_picked_per_generator(tmp_path):
+    import json
+
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    for stamp, backend in (("20261001T000000Z", "ollama"), ("20261002T000000Z", "deepseek")):
+        (answers / f"{stamp}.json").write_text(json.dumps({"generator": {"backend": backend}}))
+    assert answer_eval.latest_run(tmp_path, "ollama").name == "20261001T000000Z.json"
+    assert answer_eval.latest_run(tmp_path, "deepseek").name == "20261002T000000Z.json"
